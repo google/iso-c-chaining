@@ -16,7 +16,7 @@ Slice *more = newSlice(3)
 Slice *mid = newString("Zero,One,Two,Three")
         ->split(",")
         ->append(more)
-        ->subSlice(2, 5);
+        ->sub_slice(2, 5);
 ```
 
 At this stage, *mid* should contain *["Two", "Three", "Four", "Five"]*.
@@ -27,7 +27,8 @@ code shows a knowledge of the previous result to add to it. There would have to
 be something like a Python-like *self* variable everywhere somehow. It can't be
 done in straight C, right?
 
-Well, this works exactly as written, which you can see in `examples/chain.c`.
+Well, with a couple of small tweaks this works as written, which you can see in
+`examples/chain.c`.
 
 If you just want to see the result in action run:
 
@@ -43,10 +44,12 @@ This should give you the thrilling result of:
 Two_Three_Four_Five
 ```
 
-Slightly more thrilling is that there are no errors with MemorySanitizer or AddressSanitizer:
+Slightly more thrilling is that there are no errors with MemorySanitizer or
+AddressSanitizer:
 
 ```bash
-cmake -B build-asan -DCMAKE_C_FLAGS="-fsanitize=address -g" && cmake --build build-asan
+cmake -B build-asan -DCMAKE_C_FLAGS="-fsanitize=address -g" && \
+  cmake --build build-asan
 ./build-asan/chain
 ```
 
@@ -96,10 +99,10 @@ struct SLICE {
 ```
 
 Then we need to bind the function pointers to something, so we create a
-*newSlice()* constructor.
+*ch_new_Slice()* constructor.
 
 ```c
-Slice* __newSlice(int n) {
+Slice* ch_new_Slice(int n) {
   Slice *slice = malloc(sizeof(Slice));
 
   slice->get = get;
@@ -133,14 +136,14 @@ Here, the String's *self* had been allocated to a different anonymous String in
 the call before, so we have to re-bind it back to the String we want to work
 with. So our *string->bind((GenericEl\*)string)* sets up the *split()* call to
 actually work on our previously allocated String, rather than the anonymous one
-created with *create(String, ...)* calls before.
+created with *ch_new_String(...)* calls before.
 
 #### ...And one more
 
 There is another problem with the line above. The *mid* Slice was not created
-with a *create(Slice, ...)*, so we have no idea whether it's an anonymous Slice
-that we need to get rid of after use, or if it's something we want to keep for
-later on.
+directly with *ch_new_Slice(...)*, so we have no idea whether it's an anonymous
+Slice that we need to get rid of after use, or if it's something we want to keep
+for later on.
 
 Inside the implementation is memory handling through reference counting.
 Internally to the slice, memory is allocated and deleted as the chain is
@@ -161,8 +164,6 @@ deleted. Which reminds me, we also need a delete method to clean up any pesky
 
 ```c
 mid->bind((GenericEl*)mid)->generic.del(mid);
-
-return 0;
 ```
 
 ### Adding a few helper macros and inline helpers
@@ -171,33 +172,18 @@ Borrowing some syntax from jQuery, we can use macros and inline helpers to
 replace our warty calls in `core/types.h`:
 
 ```c
-static void* ch_bind_el(ChGenericEl *el) {
-  return el != NULL ? el->bind(el) : NULL;
-}
+#define create(class, ...) ((class*)ch_new_ ## class(__VA_ARGS__))
+#define $(obj) ((obj)->bind((GenericEl*)(obj)))
+#define $$ generic.save()
+#define chars() generic.to_chars()
+#define slf self(NULL)
 
-static void ch_release(void *elem) {
+static void release(void *elem) {
   if (elem != NULL) {
-    ((ChGenericEl*)elem)->del(elem);
+    ((GenericEl*)elem)->del(elem);
   }
 }
-
-#define ch_create(class, ...) ((Ch ## class*)ch_new_ ## class(__VA_ARGS__))
-#define ch_bind(obj) ((obj)->bind((ChGenericEl*)(obj)))
-#define ch_save generic.save()
-#define ch_as(class, elem) \
-  ((Ch ## class*)ch_cast_el((ChGenericEl*)(elem), \
-                            (ChType)&ch_new_ ## class, #class))
-#define ch_is_type(elem, type) \
-  ((elem) != NULL && ((ChGenericEl*)(elem))->type_val == (type))
-#define ch_chars() generic.to_chars()
-#define ch_slf self(NULL)
 ```
-
-By default, `core/types.h` also defines short aliases (`create`, `$()`, `$$`,
-`as`, `is_type`, `chars`, `release`, `use`, `String`, `Slice`, `Hash`, etc.). If
-embedding the library alongside headers that collide with unprefixed names,
-define `#define CHAIN_NO_SHORT_NAMES` before including the headers to expose
-only `ch_`/`Ch`/`CH_` prefixed symbols.
 
 This way, instead of the verbose lines in the last section, we can write:
 
@@ -208,31 +194,20 @@ puts($(mid)->chars());
 release(mid);
 ```
 
-To declare the typedef, constructor prototype, and unique runtime `ChType` tag
-in one step without maintaining a central enum in `core/types.h`:
-
-```c
-#define ch_use(class, type, ...) \
-  typedef struct type Ch ## class; \
-  typedef struct type ## _ Ch ## class ## Element; \
-  Ch ## class* ch_new_ ## class(__VA_ARGS__); \
-  static const ChType CH_ ## type = (const void*)&ch_new_ ## class; \
-  ch_use_short_(class, type)
-```
-
-Using this just means adding a `ch_use()` (or `use()`) line in the class's
-header (or directly in an application file for custom types):
-
-```c
-ch_use(String, STRING, char*)
-```
+(Under the hood, `core/types.h` defines all symbols with a `ch_`/`Ch`/`CH_`
+prefix—`ch_create`, `ch_bind`, `ch_save`, `ch_chars`, `ch_release`, `ChString`,
+`CH_STRING`, etc.—and aliases the short names above by default. If embedding the
+library alongside headers that collide with unprefixed names, define
+`#define CHAIN_NO_SHORT_NAMES` before including the headers to expose only the
+prefixed symbols.)
 
 ### Generic elements, runtime type safety, and heterogeneous containers
 
 To let `Slice` and `Hash` hold arbitrary object types (`String`, `Number`,
 `Boolean`, `Null`, `Slice`, `Hash`, or any user-defined class), `core/types.h`
-defines `ChType` as a pointer tag (`(const void*)&ch_new_<Class>`) and a common
-`ChGenericEl` (`GenericEl`) header struct:
+defines `ChType` (`Type`) as a unique pointer tag
+(`(const void*)&ch_new_<Class>`) and a common `ChGenericEl` (`GenericEl`) header
+struct:
 
 ```c
 typedef const void* ChType;
@@ -253,9 +228,26 @@ struct ch_generic_el {
 };
 ```
 
-Each class places `GenericEl generic;` as the first member of its struct:
+To declare a class's typedef, constructor prototype, and unique `ChType` tag in
+one step without maintaining a central enum in `core/types.h`, `ch_use()` (or
+`use()`) expands to:
 
 ```c
+#define ch_use(class, type, ...) \
+  typedef struct type Ch ## class; \
+  typedef struct type ## _ Ch ## class ## Element; \
+  Ch ## class* ch_new_ ## class(__VA_ARGS__); \
+  static const ChType CH_ ## type = (const void*)&ch_new_ ## class; \
+  ch_use_short_(class, type)
+```
+
+Using this just means adding a `ch_use()` line in the class's header (or
+directly in an application file for custom types), and placing `GenericEl
+generic;` as the first member of its struct:
+
+```c
+ch_use(String, STRING, char*)
+
 struct STRING {
   GenericEl generic;
   String* (*bind)(GenericEl*);
@@ -275,15 +267,19 @@ to `GenericEl*` for reference counting, deletion, rebinding (`generic.bind`),
 and string serialization (`to_chars()`), without containers needing hardcoded
 `switch` statements over concrete types.
 
-At the same time, `type_val` provides runtime type safety:
+At the same time, `magic` and `type_val` provide two layers of runtime type
+safety:
 
--   `update_self_stack(&top, s, EXPECTED_TYPE)` verifies that `s->type_val`
-    matches the target stack's type, preventing cross-type `bind()` calls from
-    corrupting another type's `self` stack.
--   `as(Class, elem)` performs a runtime-checked downcast from `GenericEl*` to
-    `Class*` (and binds the instance for immediate chaining), aborting with a
-    diagnostic if the runtime type doesn't match.
--   `is_type(elem, TYPE)` checks whether a `GenericEl*` has a given `Type`.
+-   `is_generic_el(ptr)` and `check_el(ptr, context)` verify that any non-`NULL`
+    pointer begins with the 4-byte `CH_MAGIC` sentinel (`"CHEL"`) before
+    dereferencing it as a `GenericEl*` (for example in `release()`,
+    `Slice::add()`, or `Hash::put()`), aborting immediately with a diagnostic if
+    a raw C pointer such as `char*` or `int*` was passed by mistake.
+-   `as(Class, elem)` verifies both `CH_MAGIC` and `elem->type_val`, performing
+    a runtime-checked downcast from `GenericEl*` to `Class*` (and binding the
+    instance for immediate chaining) or aborting with a diagnostic on mismatch.
+-   `is_type(elem, TYPE)` safely checks whether an arbitrary pointer is a valid
+    `GenericEl*` of the given `Type`.
 
 ### Nesting objects with an intrusive `self` stack
 
@@ -307,10 +303,11 @@ static Hash* self(GenericEl *s) {
 }
 ```
 
--   Calling `self(s)` verifies `s->type_val` and pushes a new instance onto the
-    intrusive doubly-linked stack (or unlinks and moves an already-present
-    instance to the top in $O(1)$ time so repeated `$(...)` binds don't
-    duplicate entries).
+-   Calling `self(s)` verifies `is_generic_el(s)` and `s->type_val == HASH` (so
+    cross-type `bind()` calls cannot corrupt another type's stack) and pushes
+    `s` onto the intrusive doubly-linked stack, or unlinks and moves an
+    already-present instance to the top in $O(1)$ time so repeated `$(...)`
+    binds don't duplicate entries.
 -   Calling `self((GenericEl*)-1)` pops the current instance off the stack and
     restores the previous instance.
 -   When an inline child object finishes its chain and is passed into an outer
