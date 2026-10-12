@@ -17,11 +17,12 @@
 /**
  * Example SQLite-backed JSON REST API server using fluent C chaining.
  *
- * 1. Start the interactive HTTP server (defaults to 127.0.0.1:8080, or pass
- *    a custom port number):
+ * 1. Build and start the interactive HTTP server (defaults to 127.0.0.1:8080,
+ *    or pass a custom port number):
  *
- *      blaze run //experimental/users/danielmi/chaining:chain_server
- *      blaze run //experimental/users/danielmi/chaining:chain_server -- 9000
+ *      cmake -B build && cmake --build build
+ *      ./build/chain_server
+ *      ./build/chain_server 9000
  *
  * 2. Interact with the running server from another terminal using curl:
  *
@@ -49,7 +50,7 @@
  *
  * 3. Run the non-interactive loopback self-test suite (e.g. under ASan/MSan):
  *
- *      blaze run //experimental/users/danielmi/chaining:chain_server -- --test
+ *      ./build/chain_server --test
  */
 
 #include <stdbool.h>

@@ -31,8 +31,9 @@ Well, this works exactly as written, which you can see in `examples/chain.c`.
 
 If you just want to see the result in action run:
 
-```
-blaze run experimental/users/danielmi/chaining:chain
+```bash
+cmake -B build && cmake --build build
+./build/chain
 ```
 
 This should give you the thrilling result of:
@@ -42,11 +43,11 @@ This should give you the thrilling result of:
 Two_Three_Four_Five
 ```
 
-Slightly more thrilling is that there are no errors with go/msan or go/asan:
+Slightly more thrilling is that there are no errors with MemorySanitizer or AddressSanitizer:
 
-```
-blaze run --config=msan experimental/users/danielmi/chaining:chain; \
-blaze run --config=asan experimental/users/danielmi/chaining:chain
+```bash
+cmake -B build-asan -DCMAKE_C_FLAGS="-fsanitize=address -g" && cmake --build build-asan
+./build-asan/chain
 ```
 
 ### Look Ma, no preprocessor tricks!
@@ -355,7 +356,7 @@ release(parsed);
 release(hash);
 ```
 
-Running `blaze run experimental/users/danielmi/chaining:chain_nest` outputs:
+Running `./build/chain_nest` outputs:
 
 ```
 Result:
@@ -368,7 +369,7 @@ Unexpected character at offset 27
 
 ### Fluent SQLite persistence with `Db`
 
-`ext/db.h` and `ext/db.c` wrap SQLite (`//third_party/sqlite`) in a
+`ext/db.h` and `ext/db.c` wrap SQLite (`<sqlite3.h>`) in a
 `GenericEl`-backed `Db` object (`examples/chain_db.c`):
 
 -   `exec(char *sql)` executes DDL/DML statements and returns `Db*` for chaining.
@@ -420,8 +421,8 @@ caller-saved (`refs > 0`) fixtures:
 
 ### Building with CMake and Single-Header Distribution
 
-In addition to Blaze (`BUILD`), the project includes a `CMakeLists.txt` and an
-stb-style single-header amalgamation generator (`tools/make_single_header.py`):
+The project includes a `CMakeLists.txt` and an stb-style single-header
+amalgamation generator (`tools/make_single_header.py`):
 
 -   **CMake Build & CTest**:
     ```bash
@@ -430,8 +431,6 @@ stb-style single-header amalgamation generator (`tools/make_single_header.py`):
     ctest --test-dir build --output-on-failure
     ```
 -   **Generating `chain_single.h`**:
-    -   With Blaze:
-        `blaze build experimental/users/danielmi/chaining:chain_single_header`
     -   With CMake: `cmake --build build --target single_header`
     -   Directly: `python3 tools/make_single_header.py --output chain_single.h`
 -   **Using `chain_single.h`**:
