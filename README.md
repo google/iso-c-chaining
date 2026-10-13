@@ -443,3 +443,10 @@ amalgamation generator (`tools/make_single_header.py`):
 
 Eligibility for the [Google Open Source Software Vulnerability Rewards Program](https://bughunters.google.com/open-source-security) is determined by the [Google Open Source Software Vulnerability Reward Program Rules](https://bughunters.google.com/about/rules/open-source/google-open-source-software-vulnerability-reward-program-rules).
 
+### Disclaimer
+
+This is not an officially supported Google product. This project is intended for
+demonstration purposes only. It is not intended for use in a production
+environment. This project is not intended for active development; issues and
+contributions are handled on a best effort basis.
+
