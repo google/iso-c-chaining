@@ -41,7 +41,6 @@ This should give you the thrilling result of:
 
 ```
 ["Two","Three","Four","Five"]
-Two_Three_Four_Five
 ```
 
 Slightly more thrilling is that there are no errors with MemorySanitizer or

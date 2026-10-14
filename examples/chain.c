@@ -35,13 +35,10 @@ int main(void) {
         ->$$;
 
     puts($(mid)->chars());
-    String *mid_str = $(mid)->join("_");
-    puts(mid_str->chars());
 
     release(string);
     release(more);
     release(mid);
-    release(mid_str);
 
     return 0;
 }
