@@ -39,6 +39,7 @@ CORE_SOURCES = [
     ("number", "core/number.c"),
     ("string", "core/string.c"),
     ("slice", "core/slice.c"),
+    ("typed_array", "core/typed_array.c"),
     ("hash", "core/hash.c"),
     ("status_or", "core/status_or.c"),
     ("json", "core/json.c"),
@@ -128,6 +129,7 @@ IMPL_PROLOGUE = (
     "#include <netinet/in.h>\n"
     "#include <poll.h>\n"
     "#include <signal.h>\n"
+    "#include <stdarg.h>\n"
     "#include <stdbool.h>\n"
     "#include <stddef.h>\n"
     "#include <stdio.h>\n"
@@ -218,6 +220,7 @@ def generate_single_header(root: pathlib.Path) -> str:
       "core/number.h",
       "core/string.h",
       "core/slice.h",
+      "core/typed_array.h",
       "core/hash.h",
       "core/status_or.h",
       "core/json.h",

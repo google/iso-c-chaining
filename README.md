@@ -196,17 +196,16 @@ release(mid);
 (Under the hood, `core/types.h` defines all symbols with a `ch_`/`Ch`/`CH_`
 prefix—`ch_create`, `ch_bind`, `ch_save`, `ch_chars`, `ch_release`, `ChString`,
 `CH_STRING`, etc.—and aliases the short names above by default. If embedding the
-library alongside headers that collide with unprefixed names, define
-`#define CHAIN_NO_SHORT_NAMES` before including the headers to expose only the
-prefixed symbols.)
+library alongside headers that collide with unprefixed names, define `#define
+CHAIN_NO_SHORT_NAMES` before including the headers to expose only the prefixed
+symbols.)
 
 ### Generic elements, runtime type safety, and heterogeneous containers
 
 To let `Slice` and `Hash` hold arbitrary object types (`String`, `Number`,
 `Boolean`, `Null`, `Slice`, `Hash`, or any user-defined class), `core/types.h`
-defines `ChType` (`Type`) as a unique pointer tag
-(`(const void*)&ch_new_<Class>`) and a common `ChGenericEl` (`GenericEl`) header
-struct:
+defines `ChType` (`Type`) as a unique pointer tag (`(const
+void*)&ch_new_<Class>`) and a common `ChGenericEl` (`GenericEl`) header struct:
 
 ```c
 typedef const void* ChType;
@@ -363,15 +362,45 @@ Parse error:
 Unexpected character at offset 27
 ```
 
+### Pulling back a little performance
+
+You might look at this and think, "Wow, this is wrapping every single int in an
+object like I'm a lowly Java developer." And you would be right. But we can take
+a page from JavaScript's TypedArrays and not have a bunch of function pointers
+attached to every element, giving us back the performance we expect from C.
+
+Let's look at `examples/chain_typed_array.c` as it pushes 6 elements into a
+dynamic buffer:
+
+```c
+TypedIntArray *scores = create(TypedIntArray, 0)
+      ->push_n(6, 42, 15, 88, 23, 16, 4)
+      ->sort()
+      ->$$; /* [4, 15, 16, 23, 42, 88] */
+```
+
+We now only have a single `TypedIntArray` object, so our massive array of
+integers isn't attached to an even more massive number of function pointers. We
+can do typed arrays of any fixed-width type, but ints, chars, and doubles are
+included by default. We add typed arrays like this:
+
+```c
+CH_DECLARE_TYPED_ARRAY(TypedIntArray, TYPED_INT_ARRAY, int)
+```
+
+TypedArrays can be sorted, mapped, filtered, and more, but if you really have to
+wrap every element in a `GenericEl` you can always use `->to_slice()`.
+
 ### Fluent SQLite persistence with `Db`
 
-`ext/db.h` and `ext/db.c` wrap SQLite (`<sqlite3.h>`) in a
-`GenericEl`-backed `Db` object (`examples/chain_db.c`):
+`ext/db.h` and `ext/db.c` wrap SQLite (`<sqlite3.h>`) in a `GenericEl`-backed
+`Db` object (`examples/chain_db.c`):
 
--   `exec(char *sql)` executes DDL/DML statements and returns `Db*` for chaining.
--   `insert(char *table, Hash *row)` builds and executes a parameterized
-    `INSERT INTO <table> (...) VALUES (?, ...)` directly from a `Hash*` (such as
-    an inline `create(Hash, ...)` or a parsed `from_json(...)` payload).
+-   `exec(char *sql)` executes DDL/DML statements and returns `Db*` for
+    chaining.
+-   `insert(char *table, Hash *row)` builds and executes a parameterized `INSERT
+    INTO <table> (...) VALUES (?, ...)` directly from a `Hash*` (such as an
+    inline `create(Hash, ...)` or a parsed `from_json(...)` payload).
 -   `params(void *slice_or_hash)` binds either positional `?` parameters from a
     `Slice*` or named `:key` parameters from a `Hash*` by inspecting each
     element's `type_val` (`NUMBER`, `STRING`, `BOOLEAN`, `NULL_VAL`, or nested
@@ -421,18 +450,20 @@ The project includes a `CMakeLists.txt` and an stb-style single-header
 amalgamation generator (`tools/make_single_header.py`):
 
 -   **CMake Build & CTest**:
+
     ```bash
     cmake -B build
     cmake --build build
     ctest --test-dir build --output-on-failure
     ```
 -   **Generating `chain_single.h`**:
+
     -   With CMake: `cmake --build build --target single_header`
     -   Directly: `python3 tools/make_single_header.py --output chain_single.h`
--   **Using `chain_single.h`**:
-    In one C/C++ source file, define `CHAIN_IMPLEMENTATION` before including
-    `chain_single.h` (and optionally `CHAIN_ENABLE_DB` when linking
-    `-lsqlite3`):
+-   **Using `chain_single.h`**: In one C/C++ source file, define
+    `CHAIN_IMPLEMENTATION` before including `chain_single.h` (and optionally
+    `CHAIN_ENABLE_DB` when linking `-lsqlite3`):
+
     ```c
     #define CHAIN_IMPLEMENTATION
     #include "chain_single.h"
@@ -440,7 +471,10 @@ amalgamation generator (`tools/make_single_header.py`):
 
 ### Security and Vulnerability Reporting
 
-Eligibility for the [Google Open Source Software Vulnerability Rewards Program](https://bughunters.google.com/open-source-security) is determined by the [Google Open Source Software Vulnerability Reward Program Rules](https://bughunters.google.com/about/rules/open-source/google-open-source-software-vulnerability-reward-program-rules).
+Eligibility for the
+[Google Open Source Software Vulnerability Rewards Program](https://bughunters.google.com/open-source-security)
+is determined by the
+[Google Open Source Software Vulnerability Reward Program Rules](https://bughunters.google.com/about/rules/open-source/google-open-source-software-vulnerability-reward-program-rules).
 
 ### Disclaimer
 
@@ -448,4 +482,3 @@ This is not an officially supported Google product. This project is intended for
 demonstration purposes only. It is not intended for use in a production
 environment. This project is not intended for active development; issues and
 contributions are handled on a best effort basis.
-

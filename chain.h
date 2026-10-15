@@ -25,6 +25,7 @@
 #include "core/slice.h"
 #include "core/status_or.h"
 #include "core/string.h"
+#include "core/typed_array.h"
 #include "core/types.h"
 #include "ext/db.h"
 #include "ext/server.h"

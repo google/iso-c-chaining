@@ -45,7 +45,19 @@ int main(void) {
       ->expect_str(joined, "alpha+beta")
       ->expect_num(as(Slice, $(doc)->get("nums"))->get(1), 20)
       ->expect_bool($(doc)->get("flag"), 1)
-      ->expect_str($(doc)->get("empty"), "null");
+      ->expect_str($(doc)->get("empty"), "null")
+      ->expect_str(
+          create(TypedIntArray, 0)->push_n(4, 40, 10, 30, 20)->sort()->reverse(),
+          "[40,30,20,10]")
+      ->expect_num(
+          create(TypedIntArray, 0)->push_n(2, 11, 22)->to_slice()->get(1),
+          22)
+      ->expect_str(
+          create(TypedCharArray, 0)->push_n(3, 'a', 'b', 'c')->join("-"),
+          "a-b-c")
+      ->expect_str(
+          create(TypedFloatArray, 0)->push_n(2, 1.5, 2.25),
+          "[1.5,2.25]");
 
 #ifdef CHAIN_HAS_DB_
   /* 2. SQLite Db extension via CHAIN_ENABLE_DB in single header. */

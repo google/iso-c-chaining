@@ -25,12 +25,41 @@
 #include "core/number.h"
 #include "core/slice.h"
 #include "core/string.h"
+#include "core/typed_array.h"
 #include "core/types.h"
 #include "ext/test.h"
 
 static int slice_foreach_sum;
 static int hash_foreach_sum;
 static int hash_foreach_keys_len;
+static int typed_int_foreach_sum;
+
+static int double_int(int v) {
+  return v * 2;
+}
+
+static int is_even_int(int v) {
+  return (v % 2) == 0;
+}
+
+static int sum_int_reduce(int acc, int v) {
+  return acc + v;
+}
+
+static void sum_typed_int_foreach(int v, int idx) {
+  /* Create a temporary inner TypedIntArray to verify outer iteration safety. */
+  TypedIntArray *tmp = create(TypedIntArray, 0)->push_n(2, 1, 2);
+  release(tmp);
+  typed_int_foreach_sum += v + idx;
+}
+
+static char rot1_char(char c) {
+  return (char)(c + 1);
+}
+
+static double scale_float(double v) {
+  return v * 2.0;
+}
 
 static void sum_slice_callback(GenericEl *el) {
   /* Create a temporary inner Slice to verify outer Slice iteration is safe. */
@@ -192,11 +221,108 @@ static void test_hash_operations(Test *t) {
   release(many);
 }
 
+static void test_typed_array_operations(Test *t) {
+  /*
+   * 1. TypedIntArray: variadic push_n, push, fill, set, at, subarray, map,
+   *    filter, sort, reduce, foreach, join, and JSON serialization.
+   */
+  TypedIntArray *ints = create(TypedIntArray, 0)
+      ->push_n(5, 40, 10, 50, 20, 30)
+      ->push(60)
+      ->push_n(0)
+      ->sort()
+      ->$$;
+
+  typed_int_foreach_sum = 0;
+  $(ints)->foreach(sum_typed_int_foreach);
+  /* Also exercise foreach on an unowned temporary array (refs == 0). */
+  create(TypedIntArray, 0)->push_n(3, 1, 2, 3)->foreach(sum_typed_int_foreach);
+  int reduced_sum = $(ints)->reduce(sum_int_reduce, 0);
+
+  int raw_ints[4] = {7, 8, 9, 10};
+  TypedIntArray *from_raw = create(TypedIntArray, 0)
+      ->from_buf(raw_ints, 4)
+      ->set(0, 70)
+      ->$$;
+
+  /*
+   * 2. TypedCharArray: variadic push_n (exercising C char -> int default
+   *    argument promotion), map, subarray, and join.
+   */
+  TypedCharArray *chars = create(TypedCharArray, 0)
+      ->push_n(5, 'h', 'e', 'l', 'l', 'o')
+      ->$$;
+
+  TypedCharArray *shifted_chars = $(chars)->subarray(0, 4)->map(rot1_char)->$$;
+
+  /*
+   * 3. TypedFloatArray: variadic push_n, fill, map, sort, and formatting.
+   */
+  TypedFloatArray *floats = create(TypedFloatArray, 0)
+      ->push_n(4, 3.5, 1.25, 4.0, 2.5)
+      ->sort()
+      ->$$;
+
+  TypedFloatArray *filled_floats = create(TypedFloatArray, 3)
+      ->fill(1.5)
+      ->map(scale_float)
+      ->$$;
+
+  $(t)->section("TypedIntArray, TypedCharArray & TypedFloatArray operations")
+      ->expect_num(create(Number, $(ints)->length), 6)
+      ->expect_num(create(Number, $(ints)->at(0)), 10)
+      ->expect_num(create(Number, $(ints)->at(-1)), 60)
+      ->expect_num(create(Number, $(ints)->at(99)), 0)
+      ->expect_str(ints, "[10,20,30,40,50,60]")
+      ->expect_str(
+          $(ints)->subarray(1, 4)->map(double_int)->reverse(),
+          "[80,60,40]")
+      ->expect_num(
+          create(TypedIntArray, 0)->push_n(3, 10, 20, 30)->to_slice()->get(1),
+          20)
+      ->expect_str(
+          create(TypedFloatArray, 0)
+              ->push_n(3, 1.5, 2.5, 3.5)
+              ->reverse()
+              ->to_slice(),
+          "[3.5,2.5,1.5]")
+      ->expect_str(
+          create(TypedCharArray, 0)->push_n(2, 'A', 'B')->to_slice(),
+          "[65,66]")
+      ->expect_str(
+          create(TypedIntArray, 0)
+              ->push_n(6, 1, 2, 3, 4, 5, 6)
+              ->filter(is_even_int)
+              ->join(":"),
+          "2:4:6")
+      ->expect_num(create(Number, reduced_sum), 210)
+      ->expect_num(create(Number, typed_int_foreach_sum), 210 + 15 + 6 + 3)
+      ->expect_str(from_raw, "[70,8,9,10]")
+      ->expect_str($(chars)->join(""), "hello")
+      ->expect_str(chars, "[\"h\",\"e\",\"l\",\"l\",\"o\"]")
+      ->expect_str($(shifted_chars)->join("-"), "i-f-m-m")
+      ->expect_str(floats, "[1.25,2.5,3.5,4]")
+      ->expect_str(filled_floats, "[3,3,3]")
+      ->expect_str(
+          create(Hash, 2)
+              ->put("scores", create(TypedIntArray, 0)->push_n(3, 100, 95, 88))
+              ->put("weights", create(TypedFloatArray, 0)->push_n(2, 0.5, 1.5)),
+          "{\"scores\":[100,95,88],\"weights\":[0.5,1.5]}");
+
+  release(filled_floats);
+  release(floats);
+  release(shifted_chars);
+  release(chars);
+  release(from_raw);
+  release(ints);
+}
+
 int main(void) {
-  Test *t = create(Test, "Containers (Slice & Hash) Unit Tests")->$$;
+  Test *t = create(Test, "Containers (Slice, Hash & TypedArray) Unit Tests")->$$;
 
   test_slice_operations(t);
   test_hash_operations(t);
+  test_typed_array_operations(t);
 
   int rc = $(t)->summary();
   release(t);

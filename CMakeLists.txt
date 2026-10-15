@@ -42,6 +42,7 @@ add_library(core_lib
   core/slice.c
   core/status_or.c
   core/string.c
+  core/typed_array.c
 )
 add_library(chaining::core ALIAS core_lib)
 
@@ -110,6 +111,8 @@ if(Python3_Interpreter_FOUND)
     ${CMAKE_CURRENT_SOURCE_DIR}/core/status_or.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core/string.c
     ${CMAKE_CURRENT_SOURCE_DIR}/core/string.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/typed_array.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/typed_array.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core/types.h
     ${CMAKE_CURRENT_SOURCE_DIR}/ext/db.c
     ${CMAKE_CURRENT_SOURCE_DIR}/ext/db.h
@@ -159,6 +162,9 @@ if(CHAIN_BUILD_EXAMPLES)
 
   add_executable(chain_nest examples/chain_nest.c)
   target_link_libraries(chain_nest PRIVATE core_lib)
+
+  add_executable(chain_typed_array examples/chain_typed_array.c)
+  target_link_libraries(chain_typed_array PRIVATE core_lib)
 
   add_executable(chain_server examples/chain_server.c)
   target_link_libraries(chain_server PRIVATE chaining_lib core_lib)
