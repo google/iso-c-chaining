@@ -20,6 +20,36 @@ requests per workload:
     /users?role=admin&min_score=90`, `PUT /users/:id` (JSON body parse +
     `UPDATE` + `SELECT`), `GET /users/:id`, and `DELETE /users/:id`.
 
+## Why Did We Do This?
+
+Normally, benchmarking C against a high-level Python web framework like Django
+is comparing two completely different programming models: hundreds of lines of
+stack-allocated C structs, manual `sqlite3_bind_*` calls, and hand-rolled
+`snprintf` buffers against a 10-line Python view.
+
+With `iso-c-chaining`, however, the C code and the Python/Django code are
+written at nearly the **exact same level of abstraction** (see the
+[side-by-side comparison below](#side-by-side-code-comparison)):
+
+-   **Declarative route registration**: `server->get("/users/:id", get_user)`
+    mirrors `path("users/<int:user_id>", user_detail)`.
+-   **6-to-8-line handlers**: Route handlers receive a pre-parsed request map
+    (`req` with `params`, `query`, and parsed JSON `body`), pass that map
+    directly into parameterized queries (`$(db)->params(...)->query(...)`), and
+    return a dynamic collection that the server serializes to JSON and frees
+    automatically.
+-   **Dynamic boxing and reference counting on both sides**: Rather than using
+    fixed C structs, `iso-c-chaining` dynamically boxes every string, number,
+    boolean, array (`Slice`), and map (`Hash`) on the heap with runtime type
+    tags (`ChGenericEl`) and reference counting (`refs`)—the same conceptual
+    machinery (`PyObject`, `dict`, `list`, `ob_refcnt`) that Python uses under
+    the hood.
+
+Because both implementations express the endpoints in the same style and do the
+same kind of dynamic object boxing per request, it makes sense to ask: *how much
+throughput do you get when that high-level, fluent programming model is
+implemented directly in C?*
+
 ## Running the Benchmarks
 
 ### 1. `iso-c-chaining` (`benchmarks/server_bench.c`)
@@ -70,6 +100,60 @@ parameters, JSON payloads, and SQLite result rows into reference-counted `Hash`,
 `Slice`, `String`, and `Number` objects (and prepares/finalizes every SQL
 statement without a statement cache), each end-to-end request completes in
 **3.75–5.82 µs**.
+
+## What This Does (and Doesn't) Measure
+
+This benchmark is an **ergonomic equivalence comparison**, not a production web
+server benchmark.
+
+### What it measures
+
+-   **In-process request dispatch (`server->dispatch()` vs. `WSGIHandler`)**:
+    Route matching, URL path/query parameter extraction, JSON request body
+    parsing, parameterized SQLite execution, dynamic row construction, JSON
+    response serialization, and per-request memory cleanup, without kernel TCP
+    socket handshake noise.
+-   **Both ORM and Raw SQL in Django**: Including **Django Raw SQL (`8.7x–10.1x`
+    gap)** alongside **Django ORM (`30.1x–35.1x` gap)** separates the cost of
+    Django's `QuerySet` AST construction and SQL compiler from the cost of
+    routing, parameter binding, SQLite execution, and JSON serialization.
+-   **Stripped middleware**: Django is configured with `DEBUG=False` and
+    `MIDDLEWARE=[]` so default CSRF, session, authentication, and security
+    middleware do not skew the comparison.
+
+### Where the comparison favors `iso-c-chaining` (what Django does that `Server` doesn't)
+
+-   **Full HTTP/WSGI request & response lifecycle**: Even with `MIDDLEWARE=[]`,
+    Django's `WSGIHandler` constructs a full `WSGIRequest` (parsing headers,
+    `META`, content-type charsets, and multi-valued `QueryDict`s), fires
+    `request_started`/`request_finished` signals (including database connection
+    health checks), and builds a full `JsonResponse` with HTTP header validation
+    and streaming iterators. `Server::dispatch()` takes `(method, path, query,
+    body)` directly without parsing HTTP headers, cookies, or charsets.
+-   **Router features**: Django's `URLResolver` supports nested `include()`
+    trees, regex/type converters (`<int:user_id>`), and named URL reversal,
+    whereas `Server` scans a flat route table and splits path segments on `'/'`.
+-   **ORM query generation**: In the ORM column, `User.objects.filter(...)`
+    dynamically builds a query AST and compiles SQL on every call, whereas
+    `Db::query()` takes a SQL string directly (making the **Django Raw SQL**
+    column the closer baseline to `Db::query()`).
+
+### Where the comparison handicaps `iso-c-chaining` (what Python/Django optimizes that `Server` + `Db` doesn't)
+
+-   **No SQLite prepared-statement cache in `ext/db.c`**: Python's built-in
+    `_sqlite3` C driver caches compiled `sqlite3_stmt*` handles in an LRU cache
+    (`cached_statements=128` by default), so Django only parses and plans each
+    SQL query once and reuses the compiled bytecode for the remaining 9,999
+    requests. `ext/db.c` has no statement cache—it calls `sqlite3_prepare_v2()`
+    (lexing, parsing, and query-planning the SQL string from scratch) and
+    `sqlite3_finalize()` on **every single query**.
+-   **Uncompiled route patterns and raw `malloc`/`free`**: `Server`'s
+    `match_route_pattern()` re-splits both the route pattern and the request
+    path on `'/'` into freshly `malloc`'d `Slice` and `String` objects on every
+    candidate route check (whereas Django pre-compiles its URL patterns once at
+    startup), and `iso-c-chaining` calls raw libc `malloc()`/`free()` for every
+    boxed primitive rather than using a pooled small-object allocator like
+    CPython's `pymalloc`.
 
 --------------------------------------------------------------------------------
 
