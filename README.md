@@ -423,6 +423,9 @@ wrap every element in a `GenericEl` you can always use `->to_slice()`.
 -   Handlers return any `GenericEl*` (`StatusOr*`, `Hash*`, or `Slice*`), which
     the transport serializes to JSON with automatic HTTP `200`/`400`/`404`
     status mapping.
+-   See [`benchmarks/`](benchmarks/README.md) (`benchmarks/server_bench.c` and
+    `benchmarks/django_bench.py`) for a head-to-head throughput and code
+    comparison of `Server` + `Db` against an equivalent Django + SQLite setup.
 
 ### Fluent Unit Testing with `Test`
 

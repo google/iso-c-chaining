@@ -175,6 +175,9 @@ if(CHAIN_BUILD_EXAMPLES)
   if(CHAIN_HAS_SQLITE)
     add_executable(chain_db examples/chain_db.c)
     target_link_libraries(chain_db PRIVATE chaining_lib core_lib)
+
+    add_executable(server_bench benchmarks/server_bench.c)
+    target_link_libraries(server_bench PRIVATE chaining_lib core_lib)
   endif()
 endif()
 
