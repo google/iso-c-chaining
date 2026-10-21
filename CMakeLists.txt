@@ -157,6 +157,9 @@ if(CHAIN_BUILD_EXAMPLES)
   add_executable(chain examples/chain.c)
   target_link_libraries(chain PRIVATE core_lib)
 
+  add_executable(chain_nomacro examples/chain_nomacro.c)
+  target_link_libraries(chain_nomacro PRIVATE core_lib)
+
   add_executable(chain_hash examples/chain_hash.c)
   target_link_libraries(chain_hash PRIVATE core_lib)
 

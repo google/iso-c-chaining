@@ -1,0 +1,48 @@
+/*
+ * Copyright 2026 Google LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#include <stdio.h>
+
+#include "core/boolean.h"
+#include "core/hash.h"
+#include "core/number.h"
+#include "core/slice.h"
+#include "core/string.h"
+#include "core/types.h"
+
+int main(void) {
+  Slice *mid = ch_new_String("One_Two_Three_Four")
+      ->append("_Five_Six")
+      ->split("_")
+      ->sub_slice(1, 4);
+
+  puts(mid->generic.to_chars()); /* ["Two","Three","Four","Five"] */
+
+  ch_release(mid);
+
+  Hash *user = ch_new_Hash(3)
+      ->put("name", ch_new_String("Ada"))
+      ->put("role", ch_new_Hash(2)
+          ->put("title", ch_new_String("Engineer"))
+          ->put("level", ch_new_Number(5)))
+      ->put("active", ch_new_Boolean(1));
+
+  puts(user->generic.to_chars());
+  /* {"name":"Ada","role":{"title":"Engineer","level":5},"active":true} */
+  ch_release(user);
+
+  return 0;
+}
