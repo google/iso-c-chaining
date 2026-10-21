@@ -89,26 +89,16 @@ python3 benchmarks/django_bench.py
 Measured on a single core (`gcc -O3` vs. Node.js v24.15.0 + Express 4.20 vs.
 Django 3.2 with `DEBUG=False` and `MIDDLEWARE=[]`):
 
-| Workload (10,000 requests)            | `iso-c-chaining` | Express 4.20  | Express 4.20     | Django (Raw     | Django (Django  |
-:                                       : (`-O3`, uncached : (`db.prepare` : (Pre-compiled    : SQL +           : ORM +           :
-:                                       : SQL)             : per query)    : `StatementSync`) : `JsonResponse`) : `JsonResponse`) :
-| :------------------------------------ | ---------------: | ------------: | ---------------: | --------------: | --------------: |
-| **`GET                                | **58.2 ms**      | **166.3 ms**  | **74.3 ms**      | **518.0 ms**    | **2,021.4 ms**  |
-: /users?role=admin&min_score=90`**     : (`171,741        : (`60,122      : (`134,514        : (`19,304        : (`4,947 req/s`, :
-:                                       : req/s`, `5.82    : req/s`,       : req/s`, `7.43    : req/s`, `51.80  : `202.14         :
-:                                       : µs/req`)         : `16.63        : µs/req`)         : µs/req`)        : µs/req`)        :
-:                                       :                  : µs/req`)      :                  :                 :                 :
-| **`GET /users/1`**                    | **37.5 ms**      | **75.0 ms**   | **47.5 ms**      | **378.0 ms**    | **1,315.3 ms**  |
-:                                       : (`266,732        : (`133,274     : (`210,546        : (`26,453        : (`7,603 req/s`, :
-:                                       : req/s`, `3.75    : req/s`, `7.50 : req/s`, `4.75    : req/s`, `37.80  : `131.53         :
-:                                       : µs/req`)         : µs/req`)      : µs/req`)         : µs/req`)        : µs/req`)        :
-| **5-Step CRUD Mix                     | **57.6 ms**      | **132.1 ms**  | **101.7 ms**     | **499.6 ms**    | **1,735.0 ms**  |
-: (`POST`/`GET`/`PUT`/`GET`/`DELETE`)** : (`173,683        : (`75,687      : (`98,329 req/s`, : (`20,016        : (`5,764 req/s`, :
-:                                       : req/s`, `5.76    : req/s`,       : `10.17 µs/req`)  : req/s`, `49.96  : `173.49         :
-:                                       : µs/req`)         : `13.21        :                  : µs/req`)        : µs/req`)        :
-:                                       :                  : µs/req`)      :                  :                 :                 :
-| **Relative Speed (`iso-c-chaining`    | **1.0x           | **2.0x to     | **1.3x to 1.8x   | **8.7x to 10.1x | **30.1x to      |
-: speedup)**                            : (baseline)**     : 2.9x faster** : faster**         : faster**        : 35.1x faster**  :
+<!-- mdformat off(reason: standard GFM table rendering) -->
+
+| Workload (10,000 requests) | `iso-c-chaining` (`-O3`, uncached SQL) | Express 4.20 (`db.prepare` per query) | Express 4.20 (Pre-compiled `StatementSync`) | Django (Raw SQL + `JsonResponse`) | Django (Django ORM + `JsonResponse`) |
+| :--- | ---: | ---: | ---: | ---: | ---: |
+| **`GET /users?role=admin&min_score=90`** | **58.2 ms** (`171,741 req/s`, `5.82 µs/req`) | **166.3 ms** (`60,122 req/s`, `16.63 µs/req`) | **74.3 ms** (`134,514 req/s`, `7.43 µs/req`) | **518.0 ms** (`19,304 req/s`, `51.80 µs/req`) | **2,021.4 ms** (`4,947 req/s`, `202.14 µs/req`) |
+| **`GET /users/1`** | **37.5 ms** (`266,732 req/s`, `3.75 µs/req`) | **75.0 ms** (`133,274 req/s`, `7.50 µs/req`) | **47.5 ms** (`210,546 req/s`, `4.75 µs/req`) | **378.0 ms** (`26,453 req/s`, `37.80 µs/req`) | **1,315.3 ms** (`7,603 req/s`, `131.53 µs/req`) |
+| **5-Step CRUD Mix (`POST`/`GET`/`PUT`/`GET`/`DELETE`)** | **57.6 ms** (`173,683 req/s`, `5.76 µs/req`) | **132.1 ms** (`75,687 req/s`, `13.21 µs/req`) | **101.7 ms** (`98,329 req/s`, `10.17 µs/req`) | **499.6 ms** (`20,016 req/s`, `49.96 µs/req`) | **1,735.0 ms** (`5,764 req/s`, `173.49 µs/req`) |
+| **Relative Speed (`iso-c-chaining` speedup)** | **1.0x (baseline)** | **2.0x to 2.9x faster** | **1.3x to 1.8x faster** | **8.7x to 10.1x faster** | **30.1x to 35.1x faster** |
+
+<!-- mdformat on -->
 
 Even though `iso-c-chaining` dynamically boxes route parameters, query
 parameters, JSON payloads, and SQLite result rows into reference-counted `Hash`,
