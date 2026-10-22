@@ -97,7 +97,9 @@ static char* inspect_chars(GenericEl *el) {
     return "<NULL>";
   }
   char *s = ((GenericEl*)ch_bind_el(el))->to_chars();
-  el->bind((GenericEl*)-1);
+  if (el->bind(NULL) == el) {
+    el->bind((GenericEl*)-1);
+  }
   return s != NULL ? s : "";
 }
 

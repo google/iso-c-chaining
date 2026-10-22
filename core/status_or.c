@@ -78,25 +78,28 @@ static char* error(void) {
   if (slf->err == NULL) {
     return "";
   }
-  return $(slf->err)->chars();
+  return slf->err->chars;
 }
 
 static GenericEl* value(void) {
-  if (slf->err != NULL || slf->val == NULL) {
+  StatusOr *so = slf;
+  if (so->err != NULL || so->val == NULL) {
     fprintf(stderr, "StatusOr error: %s\n", error());
     abort();
   }
-  GenericEl *v = slf->val;
+  GenericEl *v = so->val;
   /*
    * When `value()` is chained directly off an unowned `StatusOr` (such as
    * `as(Hash, from_json(s)->value())->$$`), detach `v`, undo the container ref
    * added by `claim_element`, and free the temporary `StatusOr` wrapper so the
    * caller doesn't leak the intermediate `StatusOr`.
    */
-  if (slf->generic.refs == 0) {
-    slf->val = NULL;
+  if (so->generic.refs == 0) {
+    so->val = NULL;
     v->refs--;
-    release(slf);
+    release(so);
+  } else if (so->generic.prev_self != NULL) {
+    self((GenericEl*)-1);
   }
   return (GenericEl*)ch_bind_el(v);
 }
@@ -112,6 +115,8 @@ static GenericEl* value_or(void* fallback) {
   /* Free an unowned error `StatusOr` before returning `fallback` on `self`. */
   if (slf->generic.refs == 0) {
     release(slf);
+  } else if (slf->generic.prev_self != NULL) {
+    self((GenericEl*)-1);
   }
   return (GenericEl*)ch_bind_el(fb);
 }
@@ -119,10 +124,14 @@ static GenericEl* value_or(void* fallback) {
 static char* to_chars(void) {
   StatusOr *status_or = slf;
   if (status_or->err != NULL) {
-    return $(status_or->err)->chars();
+    return status_or->err->chars;
   }
   if (status_or->val != NULL) {
-    return ((GenericEl*)ch_bind_el(status_or->val))->to_chars();
+    char *res = ((GenericEl*)ch_bind_el(status_or->val))->to_chars();
+    if (status_or->val->bind(NULL) == status_or->val) {
+      status_or->val->bind((GenericEl*)-1);
+    }
+    return res;
   }
   return "";
 }

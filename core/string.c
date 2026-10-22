@@ -78,7 +78,7 @@ static void set(char *s) {
 }
 
 static Slice* split(char *delim) {
-  String *str = slf;
+  String *str = slf->generic.save();
   /*
    * Copy `str->chars` into a scratch buffer and scan with `strspn`/`strcspn`
    * instead of `strtok` so `split()` is re-entrant and never mutates the source
@@ -87,13 +87,12 @@ static Slice* split(char *delim) {
   char *copy = malloc(strlen(str->chars) + 1);
   strcpy(copy, str->chars);
   /*
-   * If `split()` was chained directly off a temporary `create(String, ...)`
-   * that was never saved with `->$$`, free the temporary `String` now that its
-   * characters have been copied.
+   * Release `str` now that its characters have been copied: if `split()` was
+   * chained off an unowned temporary (`refs` was 0), this frees `str`; if
+   * `str` was a saved `String` (`refs > 0`), this pops its temporary `self`
+   * stack entry while preserving its caller reference count.
    */
-  if (str->generic.refs == 0) {
-    release(str);
-  }
+  release(str);
 
   Slice *slice = create(Slice, 10);
   char *p = copy;
@@ -174,7 +173,11 @@ static String* append_escaped(char *suffix) {
 }
 
 static char* to_chars(void) {
-  return slf->chars;
+  String *str = slf;
+  if (str->generic.prev_self != NULL) {
+    self((GenericEl*)-1);
+  }
+  return str->chars;
 }
 
 /**

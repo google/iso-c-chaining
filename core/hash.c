@@ -236,7 +236,11 @@ static void foreach(void (*run)(char*, GenericEl*)) {
     /* Re-bind `hash` each iteration in case `run()` touches another `Hash`. */
     run(key, $(hash)->get(key));
   }
-  $(hash);
+  if (hash->generic.refs == 0) {
+    release(hash);
+  } else {
+    $(hash);
+  }
 }
 
 static char* to_chars(void) {
@@ -249,22 +253,28 @@ static char* to_chars(void) {
     if (i > 0) {
       $(hash->str)->append(",");
     }
-    /*
-     * Re-bind `hash` before each lookup because nested `Hash` values share the
-     * `Hash` `self` stack when their own `to_chars()` runs.
-     */
     char *key = ((String*)hash->key_slice->elements[i])->chars;
-    char *value = $(hash)->get(key)->to_chars();
+    GenericEl *el = hash->elements[find_slot(hash, key)];
+    char *value = ((GenericEl*)ch_bind_el(el))->to_chars();
+    if (el->bind(NULL) == el) {
+      el->bind((GenericEl*)-1);
+    }
     $(hash->str)->append("\"")->append_escaped(key)->append("\"")
         ->append(":");
     /* Wrap `STRING` values in quotes; other types already format as JSON. */
-    if (is_type($(hash)->get(key), STRING)) {
+    if (is_type(el, STRING)) {
       $(hash->str)->append("\"")->append_escaped(value)->append("\"");
     } else {
       $(hash->str)->append(value);
     }
   }
-  return $(hash->str)->append("}")->generic.to_chars();
+  $(hash->str)->append("}");
+  char *res = hash->str->chars;
+  hash->str->bind((GenericEl*)-1);
+  if (hash->generic.prev_self != NULL) {
+    self((GenericEl*)-1);
+  }
+  return res;
 }
 
 /**

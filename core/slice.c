@@ -166,16 +166,20 @@ static Slice* append(Slice* other) {
 
 static String* join(char* delim) {
   int i;
-  Slice *slice = slf;
+  Slice *slice = slf->generic.save();
   String* str = create(String, "");
-  for (i = 0; i < $(slice)->length; i++) {
+  for (i = 0; i < slice->length; i++) {
     if (i > 0) {
       $(str)->append(delim);
     }
-    /* Re-bind `slice` before `get(i)` in case formatting used `Slice`. */
-    char *chars = $(slice)->get(i)->to_chars();
+    GenericEl *el = slice->elements[i];
+    char *chars = ((GenericEl*)ch_bind_el(el))->to_chars();
+    if (el->bind(NULL) == el) {
+      el->bind((GenericEl*)-1);
+    }
     $(str)->append(chars);
   }
+  release(slice);
   return $(str);
 }
 
@@ -186,7 +190,11 @@ static void foreach(void (*run)(GenericEl*)) {
     /* Re-bind `slice` each pass in case `run()` touches another `Slice`. */
     run($(slice)->get(i));
   }
-  $(slice);
+  if (slice->generic.refs == 0) {
+    release(slice);
+  } else {
+    $(slice);
+  }
 }
 
 static char* to_chars(void) {
@@ -195,16 +203,20 @@ static char* to_chars(void) {
   /* Reset the slice's reusable scratch buffer before building JSON output. */
   $(slice->str)->set("");
   $(slice->str)->append("[");
-  for (i = 0; i < $(slice)->length; i++) {
+  for (i = 0; i < slice->length; i++) {
     if (i > 0) {
       $(slice->str)->append(",");
     }
-    char *chars = $(slice)->get(i)->to_chars();
+    GenericEl *el = slice->elements[i];
+    char *chars = ((GenericEl*)ch_bind_el(el))->to_chars();
+    if (el->bind(NULL) == el) {
+      el->bind((GenericEl*)-1);
+    }
     /*
      * `String->to_chars()` returns raw unquoted text, so wrap and JSON-escape
      * `STRING` elements while appending other types' JSON text directly.
      */
-    if (is_type($(slice)->get(i), STRING)) {
+    if (is_type(el, STRING)) {
       $(slice->str)->append("\"")
         ->append_escaped(chars)
         ->append("\"");
@@ -212,7 +224,13 @@ static char* to_chars(void) {
       $(slice->str)->append(chars);
     }
   }
-  return $(slice->str)->append("]")->generic.to_chars();
+  $(slice->str)->append("]");
+  char *res = slice->str->chars;
+  slice->str->bind((GenericEl*)-1);
+  if (slice->generic.prev_self != NULL) {
+    self((GenericEl*)-1);
+  }
+  return res;
 }
 
 /**

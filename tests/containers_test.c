@@ -92,6 +92,11 @@ static void test_slice_operations(Test *t) {
 
   slice_foreach_sum = 0;
   $(grown)->foreach(sum_slice_callback);
+  /* Also exercise foreach on an unowned temporary Slice (refs == 0). */
+  create(Slice, 2)
+      ->add(create(Number, 4))
+      ->add(create(Number, 6))
+      ->foreach(sum_slice_callback);
 
   /* Saved Slice for non-destructive sub_slice and append checks. */
   Slice *saved_slice = create(Slice, 4)
@@ -108,7 +113,7 @@ static void test_slice_operations(Test *t) {
       ->expect_num($(grown)->get(0), 100)
       ->expect_num($(grown)->get(5), 5)
       ->expect_num($(grown)->get(11), 999)
-      ->expect_num(create(Number, slice_foreach_sum), 100 + 55 + 999)
+      ->expect_num(create(Number, slice_foreach_sum), 100 + 55 + 999 + 10)
       ->expect_str($(saved_slice)->sub_slice(1, 2)->join("-"), "b-c")
       ->expect_str($(saved_slice)->sub_slice(0, 0)->join("-"), "a")
       ->expect_str($(saved_slice)->join(","), "a,b,c,d")
@@ -150,7 +155,37 @@ static void test_slice_operations(Test *t) {
                   ->add(create(Slice, 1)
                       ->add(create(Number, 3))))
               ->add(create(Slice, 0)),
-          "[[[1,2],[3]],[]]");
+          "[[[1,2],[3]],[]]")
+      /*
+       * Slice::join() nested inside an outer Slice (non-empty, empty, and
+       * saved inner Slices), followed by subsequent .add() calls on the outer
+       * Slice.
+       */
+      ->expect_str(
+          create(Slice, 4)
+              ->add(create(Slice, 2)
+                  ->add(create(String, "a"))
+                  ->add(create(String, "b"))
+                  ->join("-"))
+              ->add(create(Slice, 0)->join("-"))
+              ->add($(tail_slice)->join("+"))
+              ->add(create(String, "c")),
+          "[\"a-b\",\"\",\"e+f\",\"c\"]")
+      /*
+       * Root Slice -> Hash -> Slice alternating nesting with subsequent .put()
+       * on the middle Hash and .add() on the outer Slice.
+       */
+      ->expect_str(
+          create(Slice, 3)
+              ->add(create(Hash, 2)
+                  ->put("items", create(Slice, 2)
+                      ->add(create(Number, 1))
+                      ->add(create(Number, 2)))
+                  ->put("ok", create(Boolean, true)))
+              ->add(create(Hash, 1)
+                  ->put("empty", create(Slice, 0)))
+              ->add(create(String, "done")),
+          "[{\"items\":[1,2],\"ok\":true},{\"empty\":[]},\"done\"]");
 
   release(tail_slice);
   release(saved_slice);
@@ -186,8 +221,15 @@ static void test_hash_operations(Test *t) {
   hash_foreach_sum = 0;
   hash_foreach_keys_len = 0;
   $(ord)->foreach(sum_hash_callback);
+  /* Also exercise foreach on an unowned temporary Hash (refs == 0). */
+  create(Hash, 1)->put("tmp", create(Number, 5))->foreach(sum_hash_callback);
 
   $(ord)->remove("second");
+
+  Slice *fmt_slice = create(Slice, 2)
+      ->add(create(String, "x"))
+      ->add(create(Number, 9))->$$;
+  String *csv_str = create(String, "p,q,r")->$$;
 
   $(t)->section("Hash resizing, probing, overwrite, remove & deep nesting")
       ->expect_num(create(Number, $(many)->keys()->length), 17)
@@ -198,8 +240,8 @@ static void test_hash_operations(Test *t) {
       ->expect_num($(many)->get("key_1"), 10)
       ->expect_num($(many)->get("key_5"), 555)
       ->expect_num($(many)->get("key_18"), 180)
-      ->expect_num(create(Number, hash_foreach_sum), 240)
-      ->expect_num(create(Number, hash_foreach_keys_len), 5 + 6 + 5)
+      ->expect_num(create(Number, hash_foreach_sum), 240 + 5)
+      ->expect_num(create(Number, hash_foreach_keys_len), 5 + 6 + 5 + 3)
       ->expect_str($(ord)->keys()->join(","), "first,third")
       ->expect_str(ord, "{\"first\":10,\"third\":30}")
       ->expect_str(
@@ -209,14 +251,38 @@ static void test_hash_operations(Test *t) {
                   ->add(create(Boolean, true))
                   ->add(create(Null))),
           "{\"a\":1,\"b\":[true,null]}")
+      /*
+       * Continuing .put() on an outer Hash after inserting nested Hash
+       * containers at multiple levels.
+       */
       ->expect_str(
-          create(Hash, 2)
+          create(Hash, 3)
               ->put("k\"ey", create(String, "val\nue"))
-              ->put("nested", create(Hash, 1)
+              ->put("nested", create(Hash, 2)
                   ->put("inner", create(Hash, 1)
-                      ->put("leaf", create(Boolean, true)))),
-          "{\"k\\\"ey\":\"val\\nue\",\"nested\":{\"inner\":{\"leaf\":true}}}");
+                      ->put("leaf", create(Boolean, true)))
+                  ->put("after_inner", create(Number, 2)))
+              ->put("after_nested", create(String, "tail")),
+          "{\"k\\\"ey\":\"val\\nue\","
+          "\"nested\":{\"inner\":{\"leaf\":true},\"after_inner\":2},"
+          "\"after_nested\":\"tail\"}")
+      /*
+       * Hash::to_chars(), Slice::to_chars(), and String::split()->join()
+       * invoked inside an active String chain, followed by subsequent
+       * .append() calls on the outer String.
+       */
+      ->expect_str(
+          create(String, "h=")
+              ->append($(ord)->chars())
+              ->append(";s=")
+              ->append($(fmt_slice)->chars())
+              ->append(";c=")
+              ->append($(csv_str)->split(",")->join("-")->chars())
+              ->append("!"),
+          "h={\"first\":10,\"third\":30};s=[\"x\",9];c=p-q-r!");
 
+  release(csv_str);
+  release(fmt_slice);
   release(ord);
   release(many);
 }
@@ -307,7 +373,19 @@ static void test_typed_array_operations(Test *t) {
           create(Hash, 2)
               ->put("scores", create(TypedIntArray, 0)->push_n(3, 100, 95, 88))
               ->put("weights", create(TypedFloatArray, 0)->push_n(2, 0.5, 1.5)),
-          "{\"scores\":[100,95,88],\"weights\":[0.5,1.5]}");
+          "{\"scores\":[100,95,88],\"weights\":[0.5,1.5]}")
+      /*
+       * TypedArray nested directly inside a Slice, plus TypedArray->to_slice()
+       * and TypedArray->join() nested inside an outer Slice with subsequent
+       * .add() calls on the outer Slice.
+       */
+      ->expect_str(
+          create(Slice, 4)
+              ->add(create(TypedIntArray, 0)->push_n(2, 10, 20))
+              ->add(create(TypedIntArray, 0)->push_n(2, 30, 40)->to_slice())
+              ->add(create(TypedIntArray, 0)->push_n(2, 50, 60)->join("/"))
+              ->add(create(String, "end")),
+          "[[10,20],[30,40],\"50/60\",\"end\"]");
 
   release(filled_floats);
   release(floats);

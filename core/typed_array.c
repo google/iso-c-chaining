@@ -337,6 +337,9 @@ static void format_float_elem(char *buf, size_t size, double v) {
     $(arr->str)->append("]");                                                  \
     char *res = arr->str->chars;                                               \
     arr->str->bind((GenericEl*)-1);                                            \
+    if (arr->generic.prev_self != NULL) {                                      \
+      pfx##_self((GenericEl*)-1);                                              \
+    }                                                                          \
     return res;                                                                \
   }                                                                            \
                                                                                \
