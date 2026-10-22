@@ -128,7 +128,9 @@ static int bind_single_value(sqlite3_stmt *stmt, int idx, GenericEl *val) {
    * `Hash`), popping `val` back off its `self` stack afterwards.
    */
   char *serialized = ((GenericEl*)ch_bind_el(val))->to_chars();
-  val->bind((GenericEl*)-1);
+  if (val->bind(NULL) == val) {
+    val->bind((GenericEl*)-1);
+  }
   return sqlite3_bind_text(
       stmt, idx, serialized != NULL ? serialized : "", -1, SQLITE_TRANSIENT);
 }

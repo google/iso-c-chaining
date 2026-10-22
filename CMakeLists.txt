@@ -182,6 +182,9 @@ if(CHAIN_BUILD_EXAMPLES)
     add_executable(chain_db examples/chain_db.c)
     target_link_libraries(chain_db PRIVATE chaining_lib core_lib)
 
+    add_executable(chain_vector_db examples/chain_vector_db.c)
+    target_link_libraries(chain_vector_db PRIVATE chaining_lib core_lib)
+
     add_executable(server_bench benchmarks/server_bench.c)
     target_link_libraries(server_bench PRIVATE chaining_lib core_lib)
   endif()

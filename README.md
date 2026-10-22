@@ -394,20 +394,27 @@ wrap every element in a `GenericEl` you can always use `->to_slice()`.
 ### Fluent SQLite persistence with `Db`
 
 `ext/db.h` and `ext/db.c` wrap SQLite (`<sqlite3.h>`) in a `GenericEl`-backed
-`Db` object (`examples/chain_db.c`):
+`Db` object (`examples/chain_db.c` and `examples/chain_vector_db.c`):
 
 -   `exec(char *sql)` executes DDL/DML statements and returns `Db*` for
     chaining.
 -   `insert(char *table, Hash *row)` builds and executes a parameterized `INSERT
     INTO <table> (...) VALUES (?, ...)` directly from a `Hash*` (such as an
-    inline `create(Hash, ...)` or a parsed `from_json(...)` payload).
+    inline `create(Hash, ...)`, a parsed `from_json(...)` payload, or a row
+    containing a `TypedFloatArray*` embedding vector).
 -   `params(void *slice_or_hash)` binds either positional `?` parameters from a
     `Slice*` or named `:key` parameters from a `Hash*` by inspecting each
     element's `type_val` (`NUMBER`, `STRING`, `BOOLEAN`, `NULL_VAL`, or nested
-    containers).
+    containers / `TypedArray`s).
 -   `query(char *sql)` and `query_one(char *sql)` return a `StatusOr*` wrapping
     a `Slice*` of `Hash*` rows (or a single `Hash*` row), which can be
     serialized straight to JSON via `->chars()`.
+-   `examples/chain_vector_db.c` demonstrates building a lightweight vector
+    database on top of `Db` and `TypedFloatArray`—indexing the system's Linux
+    `whatis` man-page dictionary (`sections 1, 2, 3`), storing `TypedFloatArray`
+    embeddings directly via `insert()`, registering a custom
+    `cosine_similarity(a, b)` SQL function with `sqlite3_create_function()`, and
+    running hybrid metadata + top-$K$ vector similarity queries.
 
 ### REST HTTP Server with `Server`
 
