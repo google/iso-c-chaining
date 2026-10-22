@@ -46,6 +46,7 @@ CORE_SOURCES = [
 ]
 
 EXT_SOURCES = [
+    ("mcp", "ext/mcp.c"),
     ("server", "ext/server.c"),
     ("test", "ext/test.c"),
 ]
@@ -224,6 +225,7 @@ def generate_single_header(root: pathlib.Path) -> str:
       "core/hash.h",
       "core/status_or.h",
       "core/json.h",
+      "ext/mcp.h",
       "ext/server.h",
       "ext/test.h",
   ]

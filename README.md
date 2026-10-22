@@ -428,6 +428,100 @@ wrap every element in a `GenericEl` you can always use `->to_slice()`.
     head-to-head throughput and code comparison of `Server` + `Db` against
     equivalent Node.js/Express and Python/Django + SQLite setups.
 
+### Model Context Protocol (MCP) Server with `Mcp`
+
+`ext/mcp.h` and `ext/mcp.c` provide a fluent JSON-RPC 2.0 MCP server wrapper
+(`examples/chain_mcp.c` and `tests/mcp_test.c`):
+
+-   Tool registration chains `.tool(name, description, input_schema, handler)`
+    where `input_schema` is a nested `Hash*` JSON Schema (or `NULL` for an empty
+    object schema) and `handler(Hash *args)` returns any `GenericEl*` or
+    `StatusOr*`.
+-   `examples/chain_mcp.c` demonstrates wrapping standard Linux CLI tools
+    (`/bin/uname`, `/bin/df`, and `/bin/ps`), parsing their tabular text output
+    with `String::split()` and `Slice`, and returning structured JSON objects
+    via `Hash` over MCP.
+-   `dispatch(json_rpc_line)` handles `initialize`, `notifications/initialized`,
+    `ping`, `tools/list`, and `tools/call` in memory.
+-   `call_tool(name, args)` invokes a registered tool directly in memory for
+    unit tests.
+-   `serve_stdio()` runs a line-delimited JSON-RPC 2.0 loop over
+    `stdin`/`stdout` for local MCP clients.
+
+For example, `examples/chain_mcp.c` wraps `/bin/uname` into a structured
+`system_info` tool and registers three host-inspection tools on a stdio MCP
+server:
+
+```c
+static GenericEl* system_info_tool(Hash *args) {
+  (void)args;
+  char *const argv[] = {"/bin/uname", "-s", "-n", "-r", "-m", NULL};
+  StatusOr *cmd = run_cmd(argv)->$$;
+  if (!$(cmd)->ok()) {
+    StatusOr *err = create(StatusOr, NULL, $(cmd)->error());
+    release(cmd);
+    return (GenericEl*)$(err);
+  }
+
+  Slice *parts = $((String*)cmd->val)->split(" \t\n")->$$;
+  Hash *info = create(Hash, 4)
+      ->put("sysname", create(String, slice_str(parts, 0)))
+      ->put("nodename", create(String, slice_str(parts, 1)))
+      ->put("release", create(String, slice_str(parts, 2)))
+      ->put("machine", create(String, slice_str(parts, 3)));
+  release(parts);
+  release(cmd);
+  return (GenericEl*)$(info);
+}
+```
+
+```c
+create(Mcp, "sys-inspector", "1.0.0")
+    ->tool("system_info", "Return kernel name, hostname, release, and arch",
+           NULL, system_info_tool)
+    ->tool("disk_usage", "Return filesystem capacity and free space in KB",
+           disk_usage_schema, disk_usage_tool)
+    ->tool("top_processes", "Return the top CPU-consuming processes",
+           top_processes_schema, top_processes_tool)
+    ->serve_stdio();
+```
+
+Pointing any MCP client's `mcpServers` configuration at the compiled binary
+exposes `system_info`, `disk_usage`, and `top_processes` directly to an AI
+agent:
+
+```json
+{
+  "mcpServers": {
+    "sys-inspector": {
+      "command": "/path/to/build/chain_mcp",
+      "args": []
+    }
+  }
+}
+```
+
+```text
+● Called 3 MCP tools (sys-inspector/system_info, sys-inspector/disk_usage, sys-inspector/top_processes)
+
+  1. Kernel & Architecture (system_info)
+     • OS / Kernel Name: Linux
+     • Kernel Release: 7.1.6-1rodete1-amd64
+     • Architecture: x86_64
+
+  2. Disk Space on /tmp (disk_usage)
+     • Filesystem: tmpfs (mounted on /tmp)
+     • Total Space: 65,507,828 KB (~62.47 GiB)
+     • Available Space: 65,288,520 KB (~62.26 GiB, 1% used)
+
+  3. Top Processes (top_processes)
+     PID       | Command          | CPU %   | Memory %
+     ----------|------------------|---------|---------
+     3293590   | chrome           | 8.9%    | 0.4%
+     9019      | gnome-shell      | 6.4%    | 1.9%
+     3905      | wireplumber      | 6.3%    | 0.0%
+```
+
 ### Fluent Unit Testing with `Test`
 
 `ext/test.h` and `ext/test.c` provide a chainable `Test` (`ChTest`) element

@@ -186,6 +186,7 @@ static void ch_claim_element(void *elem, void *container_slf) {
   ChGenericEl *el = ch_check_el(elem, "claim_element");
   if (el != NULL) {
     if (elem == container_slf || el->refs == 0) {
+      el->bind(el);
       el->bind((ChGenericEl*)-1);
     }
     el->refs++;

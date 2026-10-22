@@ -57,6 +57,7 @@ if(UNIX)
 endif()
 
 set(CHAINING_EXT_SRCS
+  ext/mcp.c
   ext/server.c
   ext/test.c
 )
@@ -116,6 +117,8 @@ if(Python3_Interpreter_FOUND)
     ${CMAKE_CURRENT_SOURCE_DIR}/core/types.h
     ${CMAKE_CURRENT_SOURCE_DIR}/ext/db.c
     ${CMAKE_CURRENT_SOURCE_DIR}/ext/db.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/ext/mcp.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/ext/mcp.h
     ${CMAKE_CURRENT_SOURCE_DIR}/ext/server.c
     ${CMAKE_CURRENT_SOURCE_DIR}/ext/server.h
     ${CMAKE_CURRENT_SOURCE_DIR}/ext/test.c
@@ -172,6 +175,9 @@ if(CHAIN_BUILD_EXAMPLES)
   add_executable(chain_server examples/chain_server.c)
   target_link_libraries(chain_server PRIVATE chaining_lib core_lib)
 
+  add_executable(chain_mcp examples/chain_mcp.c)
+  target_link_libraries(chain_mcp PRIVATE chaining_lib core_lib)
+
   if(CHAIN_HAS_SQLITE)
     add_executable(chain_db examples/chain_db.c)
     target_link_libraries(chain_db PRIVATE chaining_lib core_lib)
@@ -205,6 +211,10 @@ if(CHAIN_BUILD_TESTS)
     add_executable(db_test tests/db_test.c)
     target_link_libraries(db_test PRIVATE chaining_lib core_lib)
     add_test(NAME db_test COMMAND db_test)
+
+    add_executable(mcp_test tests/mcp_test.c)
+    target_link_libraries(mcp_test PRIVATE chaining_lib core_lib)
+    add_test(NAME mcp_test COMMAND mcp_test)
   endif()
 
   if(TARGET chain_single_lib)

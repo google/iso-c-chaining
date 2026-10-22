@@ -28,6 +28,11 @@ static GenericEl* handle_ping(Hash *req) {
       ->put("ok", create(Boolean, 1));
 }
 
+static GenericEl* handle_mcp_echo(Hash *args) {
+  return (GenericEl*)create(Hash, 1)
+      ->put("echo", $(args)->get("msg"));
+}
+
 int main(void) {
   Test *t = create(Test, "Single-Header Amalgamation Unit Tests")->$$;
 
@@ -85,6 +90,18 @@ int main(void) {
           $(srv)->dispatch("GET", "/ping/single_hdr", NULL, NULL),
           "{\"pong\":\"single_hdr\",\"ok\":true}");
 
+  /* 4. MCP Server extension via single header. */
+  Mcp *mcp = create(Mcp, "single-mcp", "1.0.0")
+      ->tool("echo", "Echo a message", NULL, handle_mcp_echo)
+      ->$$;
+
+  $(t)->section("MCP Server extension via single header")
+      ->expect_str(
+          $(mcp)->call_tool("echo", create(Hash, 1)
+              ->put("msg", create(String, "hi"))),
+          "{\"echo\":\"hi\"}");
+
+  release(mcp);
   release(srv);
   release(doc);
   release(joined);

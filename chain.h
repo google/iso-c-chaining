@@ -28,6 +28,7 @@
 #include "core/typed_array.h"
 #include "core/types.h"
 #include "ext/db.h"
+#include "ext/mcp.h"
 #include "ext/server.h"
 #include "ext/test.h"
 
