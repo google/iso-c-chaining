@@ -1,4 +1,4 @@
-## Function chaining in ISO C experiment
+## Function chaining in ISO C
 
 I like the concept of function chaining, so that things like builders and
 promises can be concisely expressed. I thought of course that with enough magic,
