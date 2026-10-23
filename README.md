@@ -313,55 +313,6 @@ static Hash* self(GenericEl *s) {
     increments `refs` so `slf` automatically resolves back to the enclosing
     instance.
 
-This allows arbitrary nesting and JSON parsing with `StatusOr` in
-`examples/chain_nest.c`:
-
-```c
-Hash *hash = create(Hash, 10)
-    ->put("Apple", create(String, "Foo"))
-    ->put("Banana", create(Number, 42))
-    ->put("Organic", create(Boolean, true))
-    ->put("Discount", create(Null))
-    ->put("Orange", create(Slice, 3)
-        ->add(create(String, "Baz"))
-        ->add(create(String, "Quu"))
-        ->add(create(Boolean, false))
-        ->add(create(Number, 123.456)))
-    ->put("Strawberry", create(Hash, 10)
-        ->put("Red", create(Number, 67))
-        ->put("Green", create(Number, 123))
-        ->put("Blue", create(Number, 456)))->$$;
-
-puts("Result:");
-char *json = $(hash)->chars();
-puts(json);
-
-Hash *parsed = as(Hash, from_json(json)->value())->$$;
-puts("Parsed Strawberry.Red:");
-puts(as(Hash, $(parsed)->get("Strawberry"))->get("Red")->to_chars());
-
-StatusOr *bad = from_json("{\"Apple\": \"Foo\", \"Broken\": }")->$$;
-if (!$(bad)->ok()) {
-  puts("Parse error:");
-  puts($(bad)->error());
-}
-
-release(bad);
-release(parsed);
-release(hash);
-```
-
-Running `./build/chain_nest` outputs:
-
-```
-Result:
-{"Apple":"Foo","Banana":42,"Organic":true,"Discount":null,"Orange":["Baz","Quu",false,123.456],"Strawberry":{"Red":67,"Green":123,"Blue":456}}
-Parsed Strawberry.Red:
-67
-Parse error:
-Unexpected character at offset 27
-```
-
 ### Pulling back a little performance
 
 You might look at this and think, "Wow, this is wrapping every single int in an
@@ -391,163 +342,31 @@ CH_DECLARE_TYPED_ARRAY(TypedIntArray, TYPED_INT_ARRAY, int)
 TypedArrays can be sorted, mapped, filtered, and more, but if you really have to
 wrap every element in a `GenericEl` you can always use `->to_slice()`.
 
-### Fluent SQLite persistence with `Db`
+### Examples and Extensions
 
-`ext/db.h` and `ext/db.c` wrap SQLite (`<sqlite3.h>`) in a `GenericEl`-backed
-`Db` object (`examples/chain_db.c` and `examples/chain_vector_db.c`):
+See [`examples/README.md`](examples/README.md) for full walkthroughs, code
+snippets, and sample outputs of the included examples and extensions:
 
--   `exec(char *sql)` executes DDL/DML statements and returns `Db*` for
-    chaining.
--   `insert(char *table, Hash *row)` builds and executes a parameterized `INSERT
-    INTO <table> (...) VALUES (?, ...)` directly from a `Hash*` (such as an
-    inline `create(Hash, ...)`, a parsed `from_json(...)` payload, or a row
-    containing a `TypedFloatArray*` embedding vector).
--   `params(void *slice_or_hash)` binds either positional `?` parameters from a
-    `Slice*` or named `:key` parameters from a `Hash*` by inspecting each
-    element's `type_val` (`NUMBER`, `STRING`, `BOOLEAN`, `NULL_VAL`, or nested
-    containers / `TypedArray`s).
--   `query(char *sql)` and `query_one(char *sql)` return a `StatusOr*` wrapping
-    a `Slice*` of `Hash*` rows (or a single `Hash*` row), which can be
-    serialized straight to JSON via `->chars()`.
--   `examples/chain_vector_db.c` demonstrates building a lightweight vector
-    database on top of `Db` and `TypedFloatArray`—indexing the system's Linux
-    `whatis` man-page dictionary (`sections 1, 2, 3`), storing `TypedFloatArray`
-    embeddings directly via `insert()`, registering a custom
-    `cosine_similarity(a, b)` SQL function with `sqlite3_create_function()`, and
-    running hybrid metadata + top-$K$ vector similarity queries.
-
-### REST HTTP Server with `Server`
-
-`ext/server.h` and `ext/server.c` combine a native chaining router
-(`dispatch()`) with a zero-dependency POSIX `<sys/socket.h>` HTTP/1.1 transport
-(`start()`, `stop()`, `listen()`, `request()` in `examples/chain_server.c`):
-
--   Route registration chains `.get(pattern, handler)`, `.post(pattern,
-    handler)`, `.put(pattern, handler)`, and `.delete_route(pattern, handler)`.
--   `dispatch(method, path, query, body)` splits URL segments (`:id` parameters)
-    and query strings into `Hash*` maps, parses JSON bodies via `from_json()`,
-    and invokes the matched `RouteHandler(Hash *req)`.
--   Handlers return any `GenericEl*` (`StatusOr*`, `Hash*`, or `Slice*`), which
-    the transport serializes to JSON with automatic HTTP `200`/`400`/`404`
-    status mapping.
--   See [`benchmarks/`](benchmarks/README.md) (`benchmarks/server_bench.c`,
-    `benchmarks/express_bench.js`, and `benchmarks/django_bench.py`) for a
-    head-to-head throughput and code comparison of `Server` + `Db` against
-    equivalent Node.js/Express and Python/Django + SQLite setups.
-
-### Model Context Protocol (MCP) Server with `Mcp`
-
-`ext/mcp.h` and `ext/mcp.c` provide a fluent JSON-RPC 2.0 MCP server wrapper
-(`examples/chain_mcp.c` and `tests/mcp_test.c`):
-
--   Tool registration chains `.tool(name, description, input_schema, handler)`
-    where `input_schema` is a nested `Hash*` JSON Schema (or `NULL` for an empty
-    object schema) and `handler(Hash *args)` returns any `GenericEl*` or
-    `StatusOr*`.
--   `examples/chain_mcp.c` demonstrates wrapping standard Linux CLI tools
-    (`/bin/uname`, `/bin/df`, and `/bin/ps`), parsing their tabular text output
-    with `String::split()` and `Slice`, and returning structured JSON objects
-    via `Hash` over MCP.
--   `dispatch(json_rpc_line)` handles `initialize`, `notifications/initialized`,
-    `ping`, `tools/list`, and `tools/call` in memory.
--   `call_tool(name, args)` invokes a registered tool directly in memory for
-    unit tests.
--   `serve_stdio()` runs a line-delimited JSON-RPC 2.0 loop over
-    `stdin`/`stdout` for local MCP clients.
-
-For example, `examples/chain_mcp.c` wraps `/bin/uname` into a structured
-`system_info` tool and registers three host-inspection tools on a stdio MCP
-server:
-
-```c
-static GenericEl* system_info_tool(Hash *args) {
-  (void)args;
-  char *const argv[] = {"/bin/uname", "-s", "-n", "-r", "-m", NULL};
-  StatusOr *cmd = run_cmd(argv)->$$;
-  if (!$(cmd)->ok()) {
-    StatusOr *err = create(StatusOr, NULL, $(cmd)->error());
-    release(cmd);
-    return (GenericEl*)$(err);
-  }
-
-  Slice *parts = $((String*)cmd->val)->split(" \t\n")->$$;
-  Hash *info = create(Hash, 4)
-      ->put("sysname", create(String, slice_str(parts, 0)))
-      ->put("nodename", create(String, slice_str(parts, 1)))
-      ->put("release", create(String, slice_str(parts, 2)))
-      ->put("machine", create(String, slice_str(parts, 3)));
-  release(parts);
-  release(cmd);
-  return (GenericEl*)$(info);
-}
-```
-
-```c
-create(Mcp, "sys-inspector", "1.0.0")
-    ->tool("system_info", "Return kernel name, hostname, release, and arch",
-           NULL, system_info_tool)
-    ->tool("disk_usage", "Return filesystem capacity and free space in KB",
-           disk_usage_schema, disk_usage_tool)
-    ->tool("top_processes", "Return the top CPU-consuming processes",
-           top_processes_schema, top_processes_tool)
-    ->serve_stdio();
-```
-
-Pointing any MCP client's `mcpServers` configuration at the compiled binary
-exposes `system_info`, `disk_usage`, and `top_processes` directly to an AI
-agent:
-
-```json
-{
-  "mcpServers": {
-    "sys-inspector": {
-      "command": "/path/to/build/chain_mcp",
-      "args": []
-    }
-  }
-}
-```
-
-```text
-● Called 3 MCP tools (sys-inspector/system_info, sys-inspector/disk_usage, sys-inspector/top_processes)
-
-  1. Kernel & Architecture (system_info)
-     • OS / Kernel Name: Linux
-     • Kernel Release: 7.1.6-1rodete1-amd64
-     • Architecture: x86_64
-
-  2. Disk Space on /tmp (disk_usage)
-     • Filesystem: tmpfs (mounted on /tmp)
-     • Total Space: 65,507,828 KB (~62.47 GiB)
-     • Available Space: 65,288,520 KB (~62.26 GiB, 1% used)
-
-  3. Top Processes (top_processes)
-     PID       | Command          | CPU %   | Memory %
-     ----------|------------------|---------|---------
-     3293590   | chrome           | 8.9%    | 0.4%
-     9019      | gnome-shell      | 6.4%    | 1.9%
-     3905      | wireplumber      | 6.3%    | 0.0%
-```
-
-### Fluent Unit Testing with `Test`
-
-`ext/test.h` and `ext/test.c` provide a chainable `Test` (`ChTest`) element
-(`tests/*_test.c`) that automatically claims and releases unowned inline
-temporaries (`refs == 0`) passed to assertion methods while preserving
-caller-saved (`refs > 0`) fixtures:
-
--   `section(char *name)` sets the active test section label for failure
-    diagnostics.
--   `expect_eq(void *actual, void *expected)` verifies that two elements share
-    the same runtime `ChType` tag and `to_chars()` representation (unwrapping
-    any `StatusOr*` arguments automatically).
--   `expect_str(void *actual, char *expected)`, `expect_num(void *actual, double
-    expected)`, and `expect_bool(void *actual, int expected)` assert against C
-    primitive literals.
--   `expect_ok(StatusOr *res)` and `expect_err(StatusOr *res, char *substr)`
-    assert `StatusOr` success or error substring matches.
--   `summary()` prints the pass/fail report, frees the `Test` runner if unowned,
-    and returns `0` (all passed) or `1` (any failed) for `main()`.
+-   **Core Chaining & Containers**: [`examples/chain.c`](examples/chain.c),
+    [`examples/chain_nomacro.c`](examples/chain_nomacro.c) (macro-free ANSI
+    C89), [`examples/chain_hash.c`](examples/chain_hash.c),
+    [`examples/chain_nest.c`](examples/chain_nest.c) (nested `Hash`/`Slice`
+    trees and `from_json()`), and
+    [`examples/chain_typed_array.c`](examples/chain_typed_array.c).
+-   **SQLite Persistence & Vector Search (`ext/db.h`)**:
+    [`examples/chain_db.c`](examples/chain_db.c) and
+    [`examples/chain_vector_db.c`](examples/chain_vector_db.c) (indexing over
+    4,000 Linux `whatis` man pages with 256-dim `TypedFloatArray` embeddings and
+    custom `cosine_similarity()` SQL queries).
+-   **REST HTTP Server (`ext/server.h`)**:
+    [`examples/chain_server.c`](examples/chain_server.c) and
+    [`benchmarks/README.md`](benchmarks/README.md) (`Server` + `Db` throughput
+    and code comparison against Node.js/Express and Python/Django).
+-   **Model Context Protocol Server (`ext/mcp.h`)**:
+    [`examples/chain_mcp.c`](examples/chain_mcp.c) (JSON-RPC 2.0 stdio MCP
+    server wrapping `/bin/uname`, `/bin/df`, and `/bin/ps` for AI agents).
+-   **Fluent Unit Testing (`ext/test.h`)**: Chainable assertion runner used by
+    `--test` across all examples and by `tests/*_test.c`.
 
 ### Building with CMake and Single-Header Distribution
 
