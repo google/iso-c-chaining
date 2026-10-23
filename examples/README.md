@@ -286,26 +286,3 @@ agent:
      9019      | gnome-shell      | 6.4%    | 1.9%
      3905      | wireplumber      | 6.3%    | 0.0%
 ```
-
---------------------------------------------------------------------------------
-
-## 6. Fluent Unit Testing (`ext/test.h`)
-
-`ext/test.h` and `ext/test.c` provide a chainable `Test` (`ChTest`) element
-(used by `--test` in every example and by `tests/*_test.c`) that automatically
-claims and releases unowned inline temporaries (`refs == 0`) passed to assertion
-methods while preserving caller-saved (`refs > 0`) fixtures:
-
--   `section(char *name)` sets the active test section label for failure
-    diagnostics.
--   `expect_eq(void *actual, void *expected)` verifies that two elements share
-    the same runtime `ChType` tag and `to_chars()` representation (unwrapping
-    any `StatusOr*` arguments automatically).
--   `expect_str(void *actual, char *expected)`,
-    `expect_num(void *actual, double expected)`, and
-    `expect_bool(void *actual, int expected)` assert against C primitive
-    literals.
--   `expect_ok(StatusOr *res)` and `expect_err(StatusOr *res, char *substr)`
-    assert `StatusOr` success or error substring matches.
--   `summary()` prints the pass/fail report, frees the `Test` runner if unowned,
-    and returns `0` (all passed) or `1` (any failed) for `main()`.

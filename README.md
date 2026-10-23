@@ -365,8 +365,10 @@ snippets, and sample outputs of the included examples and extensions:
 -   **Model Context Protocol Server (`ext/mcp.h`)**:
     [`examples/chain_mcp.c`](examples/chain_mcp.c) (JSON-RPC 2.0 stdio MCP
     server wrapping `/bin/uname`, `/bin/df`, and `/bin/ps` for AI agents).
--   **Fluent Unit Testing (`ext/test.h`)**: Chainable assertion runner used by
-    `--test` across all examples and by `tests/*_test.c`.
+-   **Fluent Unit Testing (`ext/test.h`)**: See
+    [`tests/README.md`](tests/README.md) for the chainable `Test` assertion
+    runner used by `--test` across all examples and by the unit test suites in
+    `tests/*_test.c`.
 
 ### Building with CMake and Single-Header Distribution
 
