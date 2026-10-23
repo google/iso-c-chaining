@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#ifndef CHAIN_MCP_H_ /* NOLINT(build/header_guard) */
+#ifndef CHAIN_MCP_H_
 #define CHAIN_MCP_H_
 
 #include "core/hash.h"
@@ -93,4 +93,4 @@ struct MCP {
 }
 #endif
 
-#endif /* CHAIN_MCP_H_ */ /* NOLINT(build/header_guard) */
+#endif  /* CHAIN_MCP_H_ */

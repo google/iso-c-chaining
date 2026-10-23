@@ -1,5 +1,3 @@
-<!-- disableFinding(LINK_RELATIVE_G3DOC) -->
-
 # ISO C Chaining Examples
 
 This directory contains runnable examples demonstrating the core data

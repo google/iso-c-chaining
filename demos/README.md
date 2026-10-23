@@ -1,5 +1,3 @@
-<!-- disableFinding(LINK_RELATIVE_G3DOC) -->
-
 # Demos: Applications Built on the Core
 
 The programs in this directory exist to show that the chaining technique is not
