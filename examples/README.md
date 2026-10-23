@@ -1,3 +1,5 @@
+<!-- disableFinding(LINK_RELATIVE_G3DOC) -->
+
 # ISO C Chaining Examples
 
 This directory contains runnable examples demonstrating core data structures,
@@ -14,21 +16,32 @@ cmake -B build && cmake --build build
 ```
 
 Every example also supports a `--test` flag (used by `ctest`) to run built-in
-assertions via `Test` (`ext/test.h`).
+assertions via `Test` (`ext/test.h`):
 
-| Binary | Source | What it demonstrates |
-| :--- | :--- | :--- |
-| `./build/chain` | [`chain.c`](chain.c) | String splitting, `Slice` concatenation, `sub_slice()`, and custom element types |
-| `./build/chain_nomacro` | [`chain_nomacro.c`](chain_nomacro.c) | The same fluent chains written in pure ANSI C89 without the `$` / `$$` / `create` convenience macros |
-| `./build/chain_hash` | [`chain_hash.c`](chain_hash.c) | Key-value `Hash` maps, lookups, and iteration |
-| `./build/chain_nest` | [`chain_nest.c`](chain_nest.c) | Arbitrarily nested `Hash` and `Slice` trees, JSON serialization, and `from_json()` with `StatusOr` |
-| `./build/chain_typed_array` | [`chain_typed_array.c`](chain_typed_array.c) | Unboxed `TypedIntArray`, `TypedFloatArray`, and `TypedCharArray` (`map`, `filter`, `reduce`, `sort`, `subarray`) |
-| `./build/chain_db` | [`chain_db.c`](chain_db.c) | Fluent SQLite `Db` queries, `Hash`-based `insert()`, and positional/named `params()` |
-| `./build/chain_vector_db` | [`chain_vector_db.c`](chain_vector_db.c) | Lightweight SQLite vector database indexing `/usr/bin/whatis` man pages with `TypedFloatArray` embeddings |
-| `./build/chain_server` | [`chain_server.c`](chain_server.c) | Zero-dependency HTTP/1.1 REST server (`Server`) backed by SQLite (`Db`) |
-| `./build/chain_mcp` | [`chain_mcp.c`](chain_mcp.c) | Model Context Protocol (`Mcp`) JSON-RPC 2.0 server wrapping `/bin/uname`, `/bin/df`, and `/bin/ps` |
+-   [`chain.c`](chain.c) (`./build/chain`): String splitting, `Slice`
+    concatenation, `sub_slice()`, and custom element types.
+-   [`chain_nomacro.c`](chain_nomacro.c) (`./build/chain_nomacro`): The same
+    fluent chains written in pure ANSI C89 without the `$` / `$$` / `create`
+    convenience macros.
+-   [`chain_hash.c`](chain_hash.c) (`./build/chain_hash`): Key-value `Hash`
+    maps, lookups, and iteration.
+-   [`chain_nest.c`](chain_nest.c) (`./build/chain_nest`): Arbitrarily nested
+    `Hash` and `Slice` trees, JSON serialization, and `from_json()` with
+    `StatusOr`.
+-   [`chain_typed_array.c`](chain_typed_array.c) (`./build/chain_typed_array`):
+    Unboxed `TypedIntArray`, `TypedFloatArray`, and `TypedCharArray` (`map`,
+    `filter`, `reduce`, `sort`, `subarray`).
+-   [`chain_db.c`](chain_db.c) (`./build/chain_db`): Fluent SQLite `Db` queries,
+    `Hash`-based `insert()`, and positional/named `params()`.
+-   [`chain_vector_db.c`](chain_vector_db.c) (`./build/chain_vector_db`):
+    Lightweight SQLite vector database indexing `/usr/bin/whatis` man pages with
+    `TypedFloatArray` embeddings.
+-   [`chain_server.c`](chain_server.c) (`./build/chain_server`): Zero-dependency
+    HTTP/1.1 REST server (`Server`) backed by SQLite (`Db`).
+-   [`chain_mcp.c`](chain_mcp.c) (`./build/chain_mcp`): Model Context Protocol
+    (`Mcp`) JSON-RPC 2.0 server wrapping `/bin/uname`, `/bin/df`, and `/bin/ps`.
 
----
+--------------------------------------------------------------------------------
 
 ## 1. Nested Containers and JSON Parsing (`chain_nest.c`)
 
@@ -83,7 +96,7 @@ Parse error:
 Unexpected character at offset 27
 ```
 
----
+--------------------------------------------------------------------------------
 
 ## 2. Contiguous TypedArrays (`chain_typed_array.c`)
 
@@ -103,7 +116,7 @@ Typed arrays support `push`, `push_n`, `fill`, `from_buf`, `subarray`, `map`,
 `filter`, `sort`, `reverse`, `reduce`, `foreach`, `join`, and `to_slice()`, and
 can be placed directly inside a `Hash` or `Slice` for JSON serialization.
 
----
+--------------------------------------------------------------------------------
 
 ## 3. SQLite Persistence (`chain_db.c`) and Vector Search (`chain_vector_db.c`)
 
@@ -112,9 +125,9 @@ can be placed directly inside a `Hash` or `Slice` for JSON serialization.
 
 -   `exec(char *sql)` executes DDL/DML statements and returns `Db*` for
     chaining.
--   `insert(char *table, Hash *row)` builds and executes a parameterized `INSERT
-    INTO <table> (...) VALUES (?, ...)` directly from a `Hash*` (including rows
-    containing `TypedFloatArray*` embedding vectors).
+-   `insert(char *table, Hash *row)` builds and executes a parameterized
+    `INSERT INTO <table> (...) VALUES (?, ...)` directly from a `Hash*`
+    (including rows containing `TypedFloatArray*` embedding vectors).
 -   `params(void *slice_or_hash)` binds either positional `?` parameters from a
     `Slice*` or named `:key` parameters from a `Hash*`.
 -   `query(char *sql)` and `query_one(char *sql)` return a `StatusOr*` wrapping
@@ -161,7 +174,7 @@ man-page section:
 ./build/chain_vector_db "create a child process" 2
 ```
 
----
+--------------------------------------------------------------------------------
 
 ## 4. REST HTTP Server (`chain_server.c`)
 
@@ -170,8 +183,9 @@ man-page section:
 (`start()`, `stop()`, `listen()`, `request()` in
 [`chain_server.c`](chain_server.c)):
 
--   Route registration chains `.get(pattern, handler)`, `.post(pattern,
-    handler)`, `.put(pattern, handler)`, and `.delete_route(pattern, handler)`.
+-   Route registration chains `.get(pattern, handler)`,
+    `.post(pattern, handler)`, `.put(pattern, handler)`, and
+    `.delete_route(pattern, handler)`.
 -   `dispatch(method, path, query, body)` splits URL segments (`:id` parameters)
     and query strings into `Hash*` maps, parses JSON bodies via `from_json()`,
     and invokes the matched `RouteHandler(Hash *req)`.
@@ -182,7 +196,7 @@ man-page section:
     throughput and code comparison of `Server` + `Db` against equivalent
     Node.js/Express and Python/Django + SQLite setups.
 
----
+--------------------------------------------------------------------------------
 
 ## 5. Model Context Protocol (MCP) Server (`chain_mcp.c`)
 
@@ -273,7 +287,7 @@ agent:
      3905      | wireplumber      | 6.3%    | 0.0%
 ```
 
----
+--------------------------------------------------------------------------------
 
 ## 6. Fluent Unit Testing (`ext/test.h`)
 
@@ -287,9 +301,10 @@ methods while preserving caller-saved (`refs > 0`) fixtures:
 -   `expect_eq(void *actual, void *expected)` verifies that two elements share
     the same runtime `ChType` tag and `to_chars()` representation (unwrapping
     any `StatusOr*` arguments automatically).
--   `expect_str(void *actual, char *expected)`, `expect_num(void *actual, double
-    expected)`, and `expect_bool(void *actual, int expected)` assert against C
-    primitive literals.
+-   `expect_str(void *actual, char *expected)`,
+    `expect_num(void *actual, double expected)`, and
+    `expect_bool(void *actual, int expected)` assert against C primitive
+    literals.
 -   `expect_ok(StatusOr *res)` and `expect_err(StatusOr *res, char *substr)`
     assert `StatusOr` success or error substring matches.
 -   `summary()` prints the pass/fail report, frees the `Test` runner if unowned,
