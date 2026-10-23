@@ -26,7 +26,7 @@
 #include "core/status_or.h"
 #include "core/string.h"
 #include "core/types.h"
-#include "ext/test.h"
+#include "core/test.h"
 
 static void test_status_or_operations(Test *t) {
   StatusOr *ok_saved = create(StatusOr, create(String, "good_val"), NULL)->$$;

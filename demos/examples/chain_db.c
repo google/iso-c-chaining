@@ -27,7 +27,7 @@
 #include "core/status_or.h"
 #include "core/string.h"
 #include "core/types.h"
-#include "ext/db.h"
+#include "demos/db.h"
 
 int main(void) {
   /*

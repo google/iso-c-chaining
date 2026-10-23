@@ -59,8 +59,8 @@
 #include "core/string.h"
 #include "core/typed_array.h"
 #include "core/types.h"
-#include "ext/db.h"
-#include "ext/test.h"
+#include "demos/db.h"
+#include "core/test.h"
 
 #define EMBED_DIM 256
 

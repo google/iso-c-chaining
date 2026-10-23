@@ -59,8 +59,8 @@
 #include "core/status_or.h"
 #include "core/string.h"
 #include "core/types.h"
-#include "ext/mcp.h"
-#include "ext/test.h"
+#include "demos/mcp.h"
+#include "core/test.h"
 
 /*
  * Executes `argv[0]` directly via `fork()` + `execv()` (without invoking a

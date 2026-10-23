@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "ext/db.h"
+#include "demos/db.h"
 
 #include <sqlite3.h>
 #include <stdlib.h>

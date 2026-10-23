@@ -1,12 +1,13 @@
 # ISO C Chaining Unit Tests
 
 This directory contains the unit test suite for `iso-c-chaining`, written using
-the library's own chainable `Test` runner (`ext/test.h`).
+the library's own chainable `Test` runner (`core/test.h`).
 
 ## Running the Tests
 
 From the repository root, build and run the full test suite (all unit tests in
-`tests/` plus `--test` self-checks across all binaries in `examples/`) via CMake
+`tests/` and `demos/tests/`, plus `--test` self-checks across all binaries in
+`examples/` and `demos/examples/`) via CMake
 and CTest:
 
 ```bash
@@ -17,9 +18,9 @@ ctest --test-dir build --output-on-failure
 
 --------------------------------------------------------------------------------
 
-## Fluent Unit Testing (`ext/test.h`)
+## Fluent Unit Testing (`core/test.h`)
 
-`ext/test.h` and `ext/test.c` provide a chainable `Test` (`ChTest`) element that
+`core/test.h` and `core/test.c` provide a chainable `Test` (`ChTest`) element that
 automatically claims and releases unowned inline temporaries (`refs == 0`)
 passed to assertion methods while preserving caller-saved (`refs > 0`) fixtures:
 
@@ -65,14 +66,18 @@ int main(void) {
     equivalents).
 -   [`json_status_test.c`](json_status_test.c): `from_json()` parser, JSON
     serialization (`to_chars()`), and `StatusOr` error propagation.
--   [`db_test.c`](db_test.c): SQLite `Db` extension (`exec`, `query`,
-    `query_row`, `insert`, positional `?` and named `:key` `params`).
--   [`server_test.c`](server_test.c): `Server` routing (`GET`, `POST`, `PUT`,
-    `DELETE`), URL `:id` segment parameters, query string parsing, and POSIX
-    HTTP/1.1 loopback socket transport.
--   [`mcp_test.c`](mcp_test.c): Model Context Protocol (`Mcp`) JSON-RPC 2.0
-    server (`initialize`, `ping`, `tools/list`, `tools/call`, and in-memory
-    `call_tool`).
 -   [`single_header_test.c`](single_header_test.c): End-to-end verification of
     the generated `chain_single.h` single-header amalgamation
     (`CHAIN_IMPLEMENTATION`).
+
+Tests for the demo extensions live alongside them in
+[`../demos/tests/`](../demos/tests/):
+
+-   [`db_test.c`](../demos/tests/db_test.c): SQLite `Db` extension (`exec`,
+    `query`, `query_row`, `insert`, positional `?` and named `:key` `params`).
+-   [`server_test.c`](../demos/tests/server_test.c): `Server` routing (`GET`,
+    `POST`, `PUT`, `DELETE`), URL `:id` segment parameters, query string
+    parsing, and POSIX HTTP/1.1 loopback socket transport.
+-   [`mcp_test.c`](../demos/tests/mcp_test.c): Model Context Protocol (`Mcp`)
+    JSON-RPC 2.0 server (`initialize`, `ping`, `tools/list`, `tools/call`, and
+    in-memory `call_tool`).

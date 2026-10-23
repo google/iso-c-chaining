@@ -1,7 +1,7 @@
 # REST Server & SQLite Benchmark (`iso-c-chaining` vs. Express.js & Django)
 
 This directory benchmarks the `Server` + `Db` stack from
-`examples/chain_server.c` against equivalent **Node.js + Express.js** and
+`demos/examples/chain_server.c` against equivalent **Node.js + Express.js** and
 **Python + Django** applications backed by an in-memory SQLite database
 (`:memory:`).
 
@@ -54,7 +54,7 @@ implemented directly in C?*
 
 ## Running the Benchmarks
 
-### 1. `iso-c-chaining` (`benchmarks/server_bench.c`)
+### 1. `iso-c-chaining` (`demos/benchmarks/server_bench.c`)
 
 Build in `Release` mode (`-O3`) with CMake and run `server_bench`:
 
@@ -64,24 +64,24 @@ cmake --build build --target server_bench
 ./build/server_bench
 ```
 
-### 2. Node.js + Express (`benchmarks/express_bench.js`)
+### 2. Node.js + Express (`demos/benchmarks/express_bench.js`)
 
 Using Node.js v22.5+ (which includes the built-in `node:sqlite` module), install
 `express` and run `express_bench.js`:
 
 ```bash
 npm install express
-node --no-warnings benchmarks/express_bench.js
+node --no-warnings demos/benchmarks/express_bench.js
 ```
 
-### 3. Python + Django (`benchmarks/django_bench.py`)
+### 3. Python + Django (`demos/benchmarks/django_bench.py`)
 
 Install Django (if not already present in your Python environment) and run
 `django_bench.py`:
 
 ```bash
 pip install django
-python3 benchmarks/django_bench.py
+python3 demos/benchmarks/django_bench.py
 ```
 
 ## Sample Results
@@ -119,7 +119,7 @@ server benchmark.
     construction, JSON response serialization, and per-request memory cleanup,
     without kernel TCP socket handshake noise.
 -   **Both uncached and cached SQLite statements**: In Express.js, we measure
-    both `db.prepare(sql)` per query (matching `ext/db.c`'s uncached
+    both `db.prepare(sql)` per query (matching `demos/db.c`'s uncached
     `sqlite3_prepare_v2()` per query) and pre-compiled `StatementSync` objects.
     In Django, we measure both Raw SQL (8.7x to 10.1x gap) and the Django ORM
     (30.1x to 35.1x gap).
@@ -144,10 +144,10 @@ server benchmark.
 
 ### Where the comparison handicaps `iso-c-chaining` (what Node.js & Python optimize that `Server` + `Db` doesn't)
 
--   **No SQLite prepared-statement cache in `ext/db.c`**: Both Python's built-in
+-   **No SQLite prepared-statement cache in `demos/db.c`**: Both Python's built-in
     `_sqlite3` driver (`cached_statements=128` LRU cache) and the pre-compiled
     Express `StatementSync` suite compile each SQL query once and reuse the
-    compiled SQLite bytecode for all 10,000 requests. `ext/db.c` has no
+    compiled SQLite bytecode for all 10,000 requests. `demos/db.c` has no
     statement cache—it calls `sqlite3_prepare_v2()` (lexing, parsing, and
     query-planning the SQL string from scratch) and `sqlite3_finalize()` on
     **every single query**, yet still outperforms pre-compiled `StatementSync`
@@ -171,7 +171,7 @@ identical to Express.js and are shorter than Django's.
 
 ### Route Registration
 
-**`iso-c-chaining` (`benchmarks/server_bench.c`)**
+**`iso-c-chaining` (`demos/benchmarks/server_bench.c`)**
 
 ```c
 Server *server = create(Server, 8080)
@@ -182,7 +182,7 @@ Server *server = create(Server, 8080)
     ->delete_route("/users/:id", delete_user)->$$;
 ```
 
-**Express.js (`benchmarks/express_bench.js`)**
+**Express.js (`demos/benchmarks/express_bench.js`)**
 
 ```javascript
 app.get('/users', listUsers)
@@ -192,7 +192,7 @@ app.get('/users', listUsers)
    .delete('/users/:id', deleteUser);
 ```
 
-**Django (`benchmarks/django_bench.py`)**
+**Django (`demos/benchmarks/django_bench.py`)**
 
 ```python
 urlpatterns = [

@@ -27,7 +27,7 @@
 #include "core/string.h"
 #include "core/typed_array.h"
 #include "core/types.h"
-#include "ext/test.h"
+#include "core/test.h"
 
 static int slice_foreach_sum;
 static int hash_foreach_sum;

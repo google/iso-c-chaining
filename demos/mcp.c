@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "ext/mcp.h"
+#include "demos/mcp.h"
 
 #include <stdbool.h>
 #include <stdio.h>

@@ -358,33 +358,39 @@ CH_DECLARE_TYPED_ARRAY(TypedIntArray, TYPED_INT_ARRAY, int)
 TypedArrays can be sorted, mapped, filtered, and more, but if you really have to
 wrap every element in a `GenericEl` you can always use `->to_slice()`.
 
-### Examples and Extensions
+### Examples, Tests, and Demos
 
-See [`examples/README.md`](examples/README.md) for full walkthroughs, code
-snippets, and sample outputs of the included examples and extensions:
+The tree has two tiers. `core/` is the technique; `demos/` is proof that it
+stretches.
 
--   **Core Chaining & Containers**: [`examples/chain.c`](examples/chain.c),
+-   **Core Chaining & Containers** ([`examples/README.md`](examples/README.md)):
+    [`examples/chain.c`](examples/chain.c),
     [`examples/chain_nomacro.c`](examples/chain_nomacro.c) (macro-free,
     strictly conforming ANSI C89), [`examples/chain_hash.c`](examples/chain_hash.c),
     [`examples/chain_nest.c`](examples/chain_nest.c) (nested `Hash`/`Slice`
     trees and `from_json()`), and
     [`examples/chain_typed_array.c`](examples/chain_typed_array.c).
--   **SQLite Persistence & Vector Search (`ext/db.h`)**:
-    [`examples/chain_db.c`](examples/chain_db.c) and
-    [`examples/chain_vector_db.c`](examples/chain_vector_db.c) (indexing over
-    4,000 Linux `whatis` man pages with 256-dim `TypedFloatArray` embeddings and
-    custom `cosine_similarity()` SQL queries).
--   **REST HTTP Server (`ext/server.h`)**:
-    [`examples/chain_server.c`](examples/chain_server.c) and
-    [`benchmarks/README.md`](benchmarks/README.md) (`Server` + `Db` throughput
-    and code comparison against Node.js/Express and Python/Django).
--   **Model Context Protocol Server (`ext/mcp.h`)**:
-    [`examples/chain_mcp.c`](examples/chain_mcp.c) (JSON-RPC 2.0 stdio MCP
-    server wrapping `/bin/uname`, `/bin/df`, and `/bin/ps` for AI agents).
--   **Fluent Unit Testing (`ext/test.h`)**: See
+-   **Fluent Unit Testing (`core/test.h`)**: See
     [`tests/README.md`](tests/README.md) for the chainable `Test` assertion
     runner used by `--test` across all examples and by the unit test suites in
     `tests/*_test.c`.
+-   **Demos** ([`demos/README.md`](demos/README.md)): larger programs built on
+    the core with no special cases in the chaining machinery. These are
+    demonstrations, not infrastructure—single-threaded, loopback-only, and not
+    hardened for untrusted input.
+    -   **SQLite Persistence & Vector Search (`demos/db.h`)**:
+        [`chain_db.c`](demos/examples/chain_db.c) and
+        [`chain_vector_db.c`](demos/examples/chain_vector_db.c) (indexing over
+        4,000 Linux `whatis` man pages with 256-dim `TypedFloatArray`
+        embeddings and custom `cosine_similarity()` SQL queries).
+    -   **REST HTTP Server (`demos/server.h`)**:
+        [`chain_server.c`](demos/examples/chain_server.c) and
+        [`demos/benchmarks/README.md`](demos/benchmarks/README.md) (`Server` +
+        `Db` throughput and code comparison against Node.js/Express and
+        Python/Django).
+    -   **Model Context Protocol Server (`demos/mcp.h`)**:
+        [`chain_mcp.c`](demos/examples/chain_mcp.c) (JSON-RPC 2.0 stdio MCP
+        server wrapping `/bin/uname`, `/bin/df`, and `/bin/ps` for AI agents).
 
 ### Building with CMake and Single-Header Distribution
 

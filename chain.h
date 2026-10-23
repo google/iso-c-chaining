@@ -27,9 +27,9 @@
 #include "core/string.h"
 #include "core/typed_array.h"
 #include "core/types.h"
-#include "ext/db.h"
-#include "ext/mcp.h"
-#include "ext/server.h"
-#include "ext/test.h"
+#include "demos/db.h"
+#include "demos/mcp.h"
+#include "demos/server.h"
+#include "core/test.h"
 
 #endif  /* CHAIN_H_ */

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "ext/db.h"
+#include "demos/db.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -27,7 +27,7 @@
 #include "core/status_or.h"
 #include "core/string.h"
 #include "core/types.h"
-#include "ext/test.h"
+#include "core/test.h"
 
 static void test_sqlite_db(Test *t) {
   Db *local_db = create(Db, ":memory:")

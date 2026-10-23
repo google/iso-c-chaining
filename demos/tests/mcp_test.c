@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "ext/mcp.h"
+#include "demos/mcp.h"
 
 #include <stddef.h>
 
@@ -24,8 +24,8 @@
 #include "core/status_or.h"
 #include "core/string.h"
 #include "core/types.h"
-#include "ext/db.h"
-#include "ext/test.h"
+#include "demos/db.h"
+#include "core/test.h"
 
 static Db *test_db;
 

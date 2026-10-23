@@ -15,48 +15,21 @@
  */
 
 /**
- * Example SQLite-backed JSON REST API server using fluent C chaining.
+ * Benchmark for the SQLite-backed REST server (`Server` + `Db`).
  *
- * 1. Build and start the interactive HTTP server (defaults to 127.0.0.1:8080,
- *    or pass a custom port number):
+ * Build in Release mode (-O3) and run:
+ *   cmake -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build
+ *   ./build/server_bench
  *
- *      cmake -B build && cmake --build build
- *      ./build/chain_server
- *      ./build/chain_server 9000
- *
- * 2. Interact with the running server from another terminal using curl:
- *
- *      # List all users
- *      curl http://127.0.0.1:8080/users
- *
- *      # Filter users by query parameters
- *      curl "http://127.0.0.1:8080/users?role=admin&min_score=90"
- *
- *      # Fetch a single user by ID
- *      curl http://127.0.0.1:8080/users/1
- *
- *      # Create a new user (POST JSON body)
- *      curl -X POST http://127.0.0.1:8080/users \
- *        -d '{"name":"Charlie","role":"admin","score":95.5}'
- *
- *      # Update an existing user (PUT JSON body)
- *      curl -X PUT http://127.0.0.1:8080/users/1 \
- *        -d '{"score":99.75}'
- *
- *      # Delete a user by ID
- *      curl -X DELETE http://127.0.0.1:8080/users/2
- *
- *    Press Ctrl-C in the server terminal to stop the server cleanly.
- *
- * 3. Run the non-interactive loopback self-test suite (e.g. under ASan/MSan):
- *
- *      ./build/chain_server --test
+ * Compare with the equivalent Django benchmark:
+ *   python3 benchmarks/django_bench.py
  */
 
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "core/boolean.h"
 #include "core/hash.h"
@@ -66,9 +39,8 @@
 #include "core/status_or.h"
 #include "core/string.h"
 #include "core/types.h"
-#include "ext/db.h"
-#include "ext/server.h"
-#include "ext/test.h"
+#include "demos/db.h"
+#include "demos/server.h"
 
 static Db *db;
 
@@ -128,43 +100,21 @@ static GenericEl* delete_user(Hash *req) {
       ->put("id", id);
 }
 
-static int run_self_test(Server *server) {
-  return create(Test, "Server Loopback Self-Test")
-      ->section("POST /users")
-      ->expect_str(
-          $(server)->request(
-              "POST", "/users",
-              "{\"name\":\"Charlie\",\"role\":\"admin\",\"score\":95.5}"),
-          "{\"id\":3,\"name\":\"Charlie\",\"role\":\"admin\",\"score\":95.5}")
-      ->section("GET /users?role=admin&min_score=90")
-      ->expect_str(
-          $(server)->request("GET", "/users?role=admin&min_score=90", NULL),
-          "[{\"id\":1,\"name\":\"Alice\",\"role\":\"admin\",\"score\":98.25},"
-          "{\"id\":3,\"name\":\"Charlie\",\"role\":\"admin\",\"score\":95.5}]")
-      ->section("PUT /users/1")
-      ->expect_str(
-          $(server)->request("PUT", "/users/1", "{\"score\":99.75}"),
-          "{\"id\":1,\"name\":\"Alice\",\"role\":\"admin\",\"score\":99.75}")
-      ->section("DELETE /users/2")
-      ->expect_str(
-          $(server)->request("DELETE", "/users/2", NULL),
-          "{\"deleted\":true,\"id\":2}")
-      ->section("GET /users/999 (404 Not Found)")
-      ->expect_err(
-          $(server)->request("GET", "/users/999", NULL),
-          "No rows returned")
-      ->summary();
+static double now_sec(void) {
+  struct timespec ts;
+  clock_gettime(CLOCK_MONOTONIC, &ts);
+  return (double)ts.tv_sec + (double)ts.tv_nsec * 1e-9;
 }
 
-int main(int argc, char **argv) {
-  int test_mode = (argc > 1 && strcmp(argv[1], "--test") == 0);
-  int port = 8080;
-  if (test_mode) {
-    port = 0;
-  } else if (argc > 1) {
-    port = atoi(argv[1]);
-  }
+static void run_one(Server *server, char *method, char *path, char *query,
+                    char *body, size_t *bytes_out) {
+  StatusOr *res = $(server)->dispatch(method, path, query, body)->$$;
+  char *json = $(res)->chars();
+  *bytes_out += strlen(json);
+  release(res);
+}
 
+int main(void) {
   db = create(Db, ":memory:")
       ->exec("CREATE TABLE users ("
              "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
@@ -181,34 +131,68 @@ int main(int argc, char **argv) {
           ->put("role", create(String, "viewer"))
           ->put("score", create(Number, 82)))->$$;
 
-  Server *server = create(Server, port)
+  Server *server = create(Server, 0)
       ->get("/users", list_users)
       ->get("/users/:id", get_user)
       ->post("/users", create_user)
       ->put("/users/:id", update_user)
       ->delete_route("/users/:id", delete_user)->$$;
 
-  int rc = 0;
-  if (test_mode) {
-    $(server)->start();
-    rc = run_self_test(server);
-    $(server)->stop();
-  } else {
-    printf("Try with curl in another terminal:\n"
-           "  curl http://127.0.0.1:%d/users\n"
-           "  curl \"http://127.0.0.1:%d/users?role=admin&min_score=90\"\n"
-           "  curl http://127.0.0.1:%d/users/1\n"
-           "  curl -X POST http://127.0.0.1:%d/users "
-           "-d '{\"name\":\"Charlie\",\"role\":\"admin\",\"score\":95.5}'\n"
-           "  curl -X PUT http://127.0.0.1:%d/users/1 "
-           "-d '{\"score\":99.75}'\n"
-           "  curl -X DELETE http://127.0.0.1:%d/users/2\n\n",
-           port, port, port, port, port, port);
-    $(server)->listen();
+  const int n_reqs = 10000;
+  const int crud_cycles = 2000;
+  size_t total_bytes = 0;
+
+  /* Workload 1: GET /users?role=admin&min_score=90 */
+  double t0 = now_sec();
+  for (int i = 0; i < n_reqs; i++) {
+    run_one(server, "GET", "/users", "role=admin&min_score=90", NULL,
+            &total_bytes);
   }
+  double dt_list = now_sec() - t0;
+
+  /* Workload 2: GET /users/1 */
+  t0 = now_sec();
+  for (int i = 0; i < n_reqs; i++) {
+    run_one(server, "GET", "/users/1", NULL, NULL, &total_bytes);
+  }
+  double dt_get = now_sec() - t0;
+
+  /* Workload 3: 5-step CRUD cycle (2,000 cycles = 10,000 requests) */
+  t0 = now_sec();
+  for (int i = 0; i < crud_cycles; i++) {
+    StatusOr *post_res = $(server)->dispatch(
+        "POST", "/users", NULL,
+        "{\"name\":\"Charlie\",\"role\":\"admin\",\"score\":95.5}")->$$;
+    Hash *created = as(Hash, $(post_res)->value());
+    int new_id = (int)as(Number, $(created)->get("id"))->value();
+    total_bytes += strlen($(post_res)->chars());
+    release(post_res);
+
+    char path_buf[64];
+    snprintf(path_buf, sizeof(path_buf), "/users/%d", new_id);
+
+    run_one(server, "GET", "/users", "role=admin&min_score=90", NULL,
+            &total_bytes);
+    run_one(server, "PUT", path_buf, NULL, "{\"score\":99.75}", &total_bytes);
+    run_one(server, "GET", path_buf, NULL, NULL, &total_bytes);
+    run_one(server, "DELETE", path_buf, NULL, NULL, &total_bytes);
+  }
+  double dt_crud = now_sec() - t0;
+
+  printf("iso-c-chaining (Server + Db, SQLite :memory:):\n");
+  printf("  GET /users?role=admin&min_score=90 : %7.2f ms for %d reqs "
+         "(%9.0f req/s, %6.2f us/req)\n",
+         dt_list * 1000.0, n_reqs, n_reqs / dt_list, (dt_list * 1e6) / n_reqs);
+  printf("  GET /users/1                       : %7.2f ms for %d reqs "
+         "(%9.0f req/s, %6.2f us/req)\n",
+         dt_get * 1000.0, n_reqs, n_reqs / dt_get, (dt_get * 1e6) / n_reqs);
+  printf("  5-step CRUD mix (POST/GET/PUT/DEL) : %7.2f ms for %d reqs "
+         "(%9.0f req/s, %6.2f us/req)\n",
+         dt_crud * 1000.0, crud_cycles * 5, (crud_cycles * 5) / dt_crud,
+         (dt_crud * 1e6) / (crud_cycles * 5));
+  printf("  (serialized JSON bytes: %zu)\n", total_bytes);
 
   release(server);
   release(db);
-
-  return rc;
+  return 0;
 }

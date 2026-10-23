@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "ext/server.h"
+#include "demos/server.h"
 
 #include <arpa/inet.h>
 #include <ctype.h>

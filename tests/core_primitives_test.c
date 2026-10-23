@@ -26,7 +26,7 @@
 #include "core/status_or.h"
 #include "core/string.h"
 #include "core/types.h"
-#include "ext/test.h"
+#include "core/test.h"
 
 static void test_runtime_and_refcounting(Test *t) {
   /* Given a String saved twice (refs == 2). */

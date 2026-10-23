@@ -21,7 +21,7 @@
  *
  * Runs the same 5 `/users` REST routes backed by in-memory SQLite (`:memory:`),
  * measuring both:
- *   1. `db.prepare(sql)` per query (matching `ext/db.c`'s uncached
+ *   1. `db.prepare(sql)` per query (matching `demos/db.c`'s uncached
  *      `sqlite3_prepare_v2` per query).
  *   2. Pre-compiled `StatementSync` handles prepared once at startup.
  *

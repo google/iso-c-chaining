@@ -23,7 +23,7 @@ the generated header to compile the runtime implementation:
   #define CHAIN_IMPLEMENTATION
   #include "chain_single.h"
 
-To include the SQLite3 `Db` extension (`ext/db.h` and `ext/db.c`), define
+To include the SQLite3 `Db` extension (`demos/db.h` and `demos/db.c`), define
 `CHAIN_ENABLE_DB` (or `#include <sqlite3.h>`) before including `chain_single.h`
 and link with `-lsqlite3`.
 """
@@ -43,15 +43,15 @@ CORE_SOURCES = [
     ("hash", "core/hash.c"),
     ("status_or", "core/status_or.c"),
     ("json", "core/json.c"),
+    ("test", "core/test.c"),
 ]
 
-EXT_SOURCES = [
-    ("mcp", "ext/mcp.c"),
-    ("server", "ext/server.c"),
-    ("test", "ext/test.c"),
+DEMO_SOURCES = [
+    ("mcp", "demos/mcp.c"),
+    ("server", "demos/server.c"),
 ]
 
-DB_SOURCE = ("db", "ext/db.c")
+DB_SOURCE = ("db", "demos/db.c")
 
 LOCAL_INCLUDE_RE = re.compile(r'^\s*#\s*include\s+"([^"]+)"\s*$')
 SYS_INCLUDE_RE = re.compile(r"^\s*#\s*include\s+<([^>]+)>\s*$")
@@ -214,7 +214,7 @@ def generate_single_header(root: pathlib.Path) -> str:
   """Builds the complete single-header contents from `root`."""
   seen_headers: set[str] = set()
 
-  core_and_ext_headers = [
+  core_and_demo_headers = [
       "core/types.h",
       "core/boolean.h",
       "core/null.h",
@@ -225,18 +225,18 @@ def generate_single_header(root: pathlib.Path) -> str:
       "core/hash.h",
       "core/status_or.h",
       "core/json.h",
-      "ext/mcp.h",
-      "ext/server.h",
-      "ext/test.h",
+      "core/test.h",
+      "demos/mcp.h",
+      "demos/server.h",
   ]
 
   header_chunks = []
-  for h in core_and_ext_headers:
+  for h in core_and_demo_headers:
     chunk = expand_header(h, root, seen_headers)
     if chunk:
       header_chunks.append(chunk)
 
-  db_header_chunk = expand_header("ext/db.h", root, seen_headers)
+  db_header_chunk = expand_header("demos/db.h", root, seen_headers)
   db_header_section = "\n".join([
       "#if !defined(CHAIN_NO_DB) && \\",
       "    (defined(CHAIN_ENABLE_DB) || defined(SQLITE3_H) || \\",
@@ -251,7 +251,7 @@ def generate_single_header(root: pathlib.Path) -> str:
   impl_chunks = [
       transform_source(mod, path, root) for mod, path in CORE_SOURCES
   ]
-  for mod, path in EXT_SOURCES:
+  for mod, path in DEMO_SOURCES:
     impl_chunks.append(transform_source(mod, path, root))
 
   db_impl_chunk = transform_source(DB_SOURCE[0], DB_SOURCE[1], root)

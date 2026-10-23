@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "ext/test.h"
+#include "core/test.h"
 
 #include <math.h>
 #include <stdio.h>
