@@ -271,18 +271,18 @@ agent:
 
   1. Kernel & Architecture (system_info)
      • OS / Kernel Name: Linux
-     • Kernel Release: 7.1.6-1rodete1-amd64
+     • Kernel Release: 6.8.0-generic
      • Architecture: x86_64
 
   2. Disk Space on /tmp (disk_usage)
      • Filesystem: tmpfs (mounted on /tmp)
-     • Total Space: 65,507,828 KB (~62.47 GiB)
-     • Available Space: 65,288,520 KB (~62.26 GiB, 1% used)
+     • Total Space: 16,777,216 KB (~16.0 GiB)
+     • Available Space: 16,515,072 KB (~15.75 GiB, 2% used)
 
   3. Top Processes (top_processes)
      PID       | Command          | CPU %   | Memory %
      ----------|------------------|---------|---------
-     3293590   | chrome           | 8.9%    | 0.4%
-     9019      | gnome-shell      | 6.4%    | 1.9%
-     3905      | wireplumber      | 6.3%    | 0.0%
+     1420      | postgres         | 4.2%    | 1.8%
+     1184      | nginx            | 1.5%    | 0.3%
+     2048      | python3          | 0.8%    | 0.6%
 ```
