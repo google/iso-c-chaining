@@ -1,15 +1,18 @@
 # Demos: Applications Built on the Core
 
-The programs in this directory exist to show that the chaining technique is not
-limited to toy examples—the same `self`-stack mechanism carries a SQLite
-wrapper, an HTTP/1.1 REST server, and a Model Context Protocol server without
-special cases. Each one is a few hundred lines and reads top to bottom.
+The programs in this directory do real work. They parse HTTP/1.1 off a socket,
+bind named parameters into SQLite statements, index a few thousand man pages for
+vector search, and speak JSON-RPC 2.0 to AI agents over stdio—and the chaining
+machinery in `core/` needed no special cases to get there. A route handler, a
+tool handler, and a toy `Slice` chain are all the same mechanism.
 
-They are demonstrations, not infrastructure. They are single-threaded, do no
-input hardening beyond what the examples need, bind only to loopback, and
-should not be exposed to a network. If you want to understand the technique,
-read [`../README.md`](../README.md) and [`../examples/`](../examples/README.md)
-first; come here to see it stretch.
+That is the point of this directory: the technique is not a curated special
+case. Each program is a few hundred lines and reads top to bottom.
+
+What they are not is hardened. They are single-threaded, bind only to loopback,
+and validate input only as far as the examples need; don't put one on a network.
+If you want to understand the technique, start with [`../README.md`](../README.md)
+and [`../examples/`](../examples/README.md); come here to see it stretch.
 
 ## Layout
 

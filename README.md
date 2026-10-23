@@ -52,6 +52,26 @@ cmake -B build-asan -DCMAKE_C_FLAGS="-fsanitize=address -g" && \
 ./build-asan/chain
 ```
 
+And it isn't limited to toys. The same mechanism runs an HTTP route handler end
+to end—request parsing, named SQL parameter binding, JSON response—with no
+special cases added to the chaining machinery:
+
+```c
+/* GET /users?role=admin&min_score=90 */
+static GenericEl* list_users(Hash *req) {
+  return (GenericEl*)$(db)
+      ->params($(req)->get("query"))
+      ->query("SELECT id, name, role, score FROM users "
+              "WHERE (:role IS NULL OR role = :role) "
+              "  AND (:min_score IS NULL OR score >= :min_score) "
+              "ORDER BY score DESC");
+}
+```
+
+See [`demos/`](demos/README.md) for that server, the SQLite wrapper behind it,
+and a Model Context Protocol server built the same way. The rest of this
+document explains how the trick works.
+
 ### Look Ma, no preprocessor tricks!
 
 Since C doesn't have the proper means to restrict any data to a struct or
@@ -374,10 +394,10 @@ stretches.
     [`tests/README.md`](tests/README.md) for the chainable `Test` assertion
     runner used by `--test` across all examples and by the unit test suites in
     `tests/*_test.c`.
--   **Demos** ([`demos/README.md`](demos/README.md)): larger programs built on
-    the core with no special cases in the chaining machinery. These are
-    demonstrations, not infrastructure—single-threaded, loopback-only, and not
-    hardened for untrusted input.
+-   **Demos** ([`demos/README.md`](demos/README.md)): programs that do real
+    work—HTTP parsing, SQL parameter binding, JSON-RPC—built on the core with
+    no special cases in the chaining machinery. Not hardened for hostile input;
+    loopback-only.
     -   **SQLite Persistence & Vector Search (`demos/db.h`)**:
         [`chain_db.c`](demos/examples/chain_db.c) and
         [`chain_vector_db.c`](demos/examples/chain_vector_db.c) (indexing over
