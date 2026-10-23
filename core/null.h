@@ -23,7 +23,7 @@
 extern "C" {
 #endif
 
-ch_use(Null, NULL_VAL, void)
+ch_use(Null, NULL_VAL, (void))
 
 /*
  * Singleton-like boxed `null` sentinel value for heterogeneous containers,

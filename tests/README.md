@@ -6,8 +6,8 @@ the library's own chainable `Test` runner (`ext/test.h`).
 ## Running the Tests
 
 From the repository root, build and run the full test suite (all unit tests in
-`tests/` plus `--test` self-checks across all binaries in `examples/`) via
-CMake and CTest:
+`tests/` plus `--test` self-checks across all binaries in `examples/`) via CMake
+and CTest:
 
 ```bash
 cmake -B build

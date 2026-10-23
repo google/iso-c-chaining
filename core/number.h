@@ -23,7 +23,7 @@
 extern "C" {
 #endif
 
-ch_use(Number, NUMBER, double)
+ch_use(Number, NUMBER, (double))
 
 /*
  * Boxed double-precision numeric value supporting fluent chaining and compact

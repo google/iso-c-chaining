@@ -25,7 +25,7 @@
 extern "C" {
 #endif
 
-ch_use(Test, TEST, char*)
+ch_use(Test, TEST, (char*))
 
 /*
  * Fluent unit-testing runner and assertion element. Automatically claims and

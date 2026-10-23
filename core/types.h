@@ -38,9 +38,17 @@ extern "C" {
 #define CH_THREAD_LOCAL
 #endif
 
-typedef const void* ChType;
+/*
+ * Runtime type tag. Each class's tag is the address of its constructor
+ * (`&ch_new_<Class>`), which has external linkage and therefore a single
+ * address across all translation units. `ChType` is declared as a *function*
+ * pointer type rather than `const void*` because ISO C (C89 6.3.2.3) permits
+ * converting between pointer-to-function types but not between a function
+ * pointer and an object pointer.
+ */
+typedef void (*ChType)(void);
 
-#define CH_GENERIC ((ChType)NULL)
+#define CH_GENERIC ((ChType)0)
 #define CH_MAGIC 0x4348454Cu /* "CHEL" (Chaining Element) */
 
 typedef struct ch_generic_el ChGenericEl;
@@ -71,12 +79,13 @@ struct ch_generic_el {
  * is safe under ISO C strict aliasing, ASan, and `-fsanitize=object-size`.
  */
 static int ch_is_generic_el(const void *ptr) {
+  const unsigned char *b;
+  const unsigned int expected = CH_MAGIC;
+  const unsigned char *m = (const unsigned char*)&expected;
   if (ptr == NULL) {
     return 0;
   }
-  const unsigned char *b = (const unsigned char*)ptr;
-  const unsigned int expected = CH_MAGIC;
-  const unsigned char *m = (const unsigned char*)&expected;
+  b = (const unsigned char*)ptr;
   return b[0] == m[0] && b[1] == m[1] && b[2] == m[2] && b[3] == m[3];
 }
 
@@ -124,8 +133,8 @@ static ChGenericEl* ch_update_self_stack(ChGenericEl **top_ptr, ChGenericEl *s,
     }
   } else if (s != NULL) {
     if (!ch_is_generic_el(s) || s->type_val != expected_type) {
-      fprintf(stderr, "Type error: cannot bind %p to type %p self stack\n",
-              (void*)s, expected_type);
+      fprintf(stderr, "Type error: cannot bind %p to another type's self stack\n",
+              (void*)s);
       return NULL;
     }
     if (s != top) {
@@ -168,8 +177,7 @@ static void* ch_cast_el(ChGenericEl *el, ChType expected, const char *name) {
     return NULL;
   }
   if (checked->type_val != expected) {
-    fprintf(stderr, "Type error: expected %s (%p), got %p\n",
-            name, expected, checked->type_val);
+    fprintf(stderr, "Type error: %p is not a %s\n", (void*)checked, name);
     abort();
   }
   return checked->bind(checked);
@@ -204,16 +212,30 @@ static void ch_release(void *elem) {
   }
 }
 
+/*
+ * Variadic macros (`__VA_ARGS__`) are a C99 / C++11 feature. The constructor
+ * sugar `ch_create()` / `create()` depends on them, so it is only defined when
+ * available; a strict C89 build (`-std=c89 -pedantic`) calls the
+ * `ch_new_<Class>()` constructors directly instead (see
+ * `examples/chain_nomacro.c`).
+ */
+#if (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L) || \
+    (defined(__cplusplus) && __cplusplus >= 201103L)
+#define CH_HAS_VARIADIC_MACROS_ 1
+#endif
+
 #ifndef CHAIN_NO_SHORT_NAMES
 #define ch_use_short_(class, type) \
   typedef struct type class; \
   typedef struct type ## _ class ## Element; \
-  static const ChType type = (const void*)&ch_new_ ## class;
+  static const ChType type = (ChType)&ch_new_ ## class;
 #else
 #define ch_use_short_(class, type)
 #endif
 
+#ifdef CH_HAS_VARIADIC_MACROS_
 #define ch_create(class, ...) ((Ch ## class*)ch_new_ ## class(__VA_ARGS__))
+#endif
 #define ch_bind(obj) ((obj)->bind((ChGenericEl*)(obj)))
 #define ch_save generic.save()
 #define ch_as(class, elem) \
@@ -223,11 +245,15 @@ static void ch_release(void *elem) {
   (ch_is_generic_el(elem) && ((ChGenericEl*)(elem))->type_val == (type))
 #define ch_chars() generic.to_chars()
 #define ch_slf self(NULL)
-#define ch_use(class, type, ...) \
+/*
+ * `args` is the constructor's parenthesized parameter list, e.g.
+ * `ch_use(String, STRING, (char*))` or `ch_use(Null, NULL_VAL, (void))`.
+ */
+#define ch_use(class, type, args) \
   typedef struct type Ch ## class; \
   typedef struct type ## _ Ch ## class ## Element; \
-  Ch ## class* ch_new_ ## class(__VA_ARGS__); \
-  static const ChType CH_ ## type = (const void*)&ch_new_ ## class; \
+  Ch ## class* ch_new_ ## class args; \
+  static const ChType CH_ ## type = (ChType)&ch_new_ ## class; \
   ch_use_short_(class, type)
 
 #ifndef CHAIN_NO_SHORT_NAMES
@@ -239,7 +265,9 @@ typedef ChGenericEl GenericEl;
 #define update_self_stack ch_update_self_stack
 #define claim_element ch_claim_element
 #define release ch_release
+#ifdef CH_HAS_VARIADIC_MACROS_
 #define create(class, ...) ((class*)ch_new_ ## class(__VA_ARGS__))
+#endif
 #define $(obj) ch_bind(obj)
 #define $$ ch_save
 #define as(class, elem) \
@@ -247,7 +275,7 @@ typedef ChGenericEl GenericEl;
 #define is_type(elem, type) ch_is_type(elem, type)
 #define chars() ch_chars()
 #define slf ch_slf
-#define use(class, type, ...) ch_use(class, type, __VA_ARGS__)
+#define use(class, type, args) ch_use(class, type, args)
 #endif
 
 #ifdef __cplusplus

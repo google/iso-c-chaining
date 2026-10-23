@@ -33,7 +33,7 @@ extern "C" {
  * single allocation.
  */
 #define CH_DECLARE_TYPED_ARRAY(ChType, TYPE_TAG, ElemT)                        \
-  ch_use(ChType, TYPE_TAG, int)                                                \
+  ch_use(ChType, TYPE_TAG, (int))                                               \
                                                                                \
   struct TYPE_TAG {                                                            \
     ChGenericEl generic;                                                       \

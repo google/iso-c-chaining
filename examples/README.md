@@ -22,7 +22,8 @@ assertions via `Test` (`ext/test.h`):
     concatenation, `sub_slice()`, and custom element types.
 -   [`chain_nomacro.c`](chain_nomacro.c) (`./build/chain_nomacro`): The same
     fluent chains written in pure ANSI C89 without the `$` / `$$` / `create`
-    convenience macros.
+    convenience macros. Defines `CHAIN_NO_SHORT_NAMES` and compiles cleanly
+    under `gcc -std=c89 -pedantic -Werror`.
 -   [`chain_hash.c`](chain_hash.c) (`./build/chain_hash`): Key-value `Hash`
     maps, lookups, and iteration.
 -   [`chain_nest.c`](chain_nest.c) (`./build/chain_nest`): Arbitrarily nested

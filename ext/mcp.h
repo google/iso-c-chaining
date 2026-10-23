@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#ifndef CHAIN_MCP_H_  // NOLINT(build/header_guard)
+#ifndef CHAIN_MCP_H_
 #define CHAIN_MCP_H_
 
 #include "core/hash.h"
@@ -28,7 +28,7 @@ extern "C" {
 #endif
 
 /* clang-format off */
-ch_use(Mcp, MCP, char*, char*)
+ch_use(Mcp, MCP, (char*, char*))
     /* clang-format on */
 
     /*
@@ -93,4 +93,4 @@ struct MCP {
 }
 #endif
 
-#endif  // CHAIN_MCP_H_  // NOLINT(build/header_guard)
+#endif  /* CHAIN_MCP_H_ */

@@ -24,7 +24,7 @@
 extern "C" {
 #endif
 
-ch_use(StatusOr, STATUS_OR, void*, char*)
+ch_use(StatusOr, STATUS_OR, (void*, char*))
 
 /*
  * Result wrapper holding either a non-NULL `ChGenericEl*` value on success or

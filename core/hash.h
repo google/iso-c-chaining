@@ -25,7 +25,7 @@
 extern "C" {
 #endif
 
-ch_use(Hash, HASH, int)
+ch_use(Hash, HASH, (int))
 
 /*
  * Open-addressed string-keyed hash table supporting heterogeneous `ChGenericEl`

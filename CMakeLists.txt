@@ -162,6 +162,14 @@ if(CHAIN_BUILD_EXAMPLES)
 
   add_executable(chain_nomacro examples/chain_nomacro.c)
   target_link_libraries(chain_nomacro PRIVATE core_lib)
+  set_target_properties(chain_nomacro PROPERTIES
+    C_STANDARD 90
+    C_STANDARD_REQUIRED ON
+    C_EXTENSIONS OFF
+  )
+  if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(chain_nomacro PRIVATE -std=c89 -pedantic -Werror)
+  endif()
 
   add_executable(chain_hash examples/chain_hash.c)
   target_link_libraries(chain_hash PRIVATE core_lib)

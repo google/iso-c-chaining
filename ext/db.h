@@ -28,7 +28,7 @@
 extern "C" {
 #endif
 
-ch_use(Db, DB, char*)
+ch_use(Db, DB, (char*))
 
 /*
  * Fluent SQLite3 database wrapper supporting parameterized DDL/DML execution,

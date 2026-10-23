@@ -200,17 +200,27 @@ library alongside headers that collide with unprefixed names, define `#define
 CHAIN_NO_SHORT_NAMES` before including the headers to expose only the prefixed
 symbols.)
 
+A word on standards: the short names lean on two things that postdate C89—
+variadic macros (`create(class, ...)`, C99) and `$` in identifiers (a GNU/Clang
+extension). With `CHAIN_NO_SHORT_NAMES` defined, the headers contain neither,
+and `examples/chain_nomacro.c` compiles cleanly under `gcc -std=c89 -pedantic
+-Werror` against them. That file is the existence proof that the *technique*
+needs nothing beyond ANSI C; the macros are just sugar on top. (The
+implementation files in `core/` use C99 internally—mixed declarations and the
+like—but a C89 client only ever sees the headers.)
+
 ### Generic elements, runtime type safety, and heterogeneous containers
 
 To let `Slice` and `Hash` hold arbitrary object types (`String`, `Number`,
 `Boolean`, `Null`, `Slice`, `Hash`, or any user-defined class), `core/types.h`
-defines `ChType` (`Type`) as a unique pointer tag (`(const
-void*)&ch_new_<Class>`) and a common `ChGenericEl` (`GenericEl`) header struct:
+defines `ChType` (`Type`) as a unique pointer tag (the address of the class's
+constructor, `&ch_new_<Class>`) and a common `ChGenericEl` (`GenericEl`) header
+struct:
 
 ```c
-typedef const void* ChType;
+typedef void (*ChType)(void);
 
-#define CH_GENERIC ((ChType)NULL)
+#define CH_GENERIC ((ChType)0)
 #define CH_MAGIC 0x4348454Cu /* "CHEL" (Chaining Element) */
 
 struct ch_generic_el {
@@ -228,23 +238,29 @@ struct ch_generic_el {
 
 To declare a class's typedef, constructor prototype, and unique `ChType` tag in
 one step without maintaining a central enum in `core/types.h`, `ch_use()` (or
-`use()`) expands to:
+`use()`) takes the constructor's parenthesized parameter list and expands to:
 
 ```c
-#define ch_use(class, type, ...) \
+#define ch_use(class, type, args) \
   typedef struct type Ch ## class; \
   typedef struct type ## _ Ch ## class ## Element; \
-  Ch ## class* ch_new_ ## class(__VA_ARGS__); \
-  static const ChType CH_ ## type = (const void*)&ch_new_ ## class; \
+  Ch ## class* ch_new_ ## class args; \
+  static const ChType CH_ ## type = (ChType)&ch_new_ ## class; \
   ch_use_short_(class, type)
 ```
+
+(`ChType` is a function-pointer type rather than `const void*` because ISO C
+allows converting between pointer-to-function types, but not between a function
+pointer and an object pointer. Using the constructor's address—which has
+external linkage—guarantees one tag value per class across every translation
+unit, with no registry to maintain.)
 
 Using this just means adding a `ch_use()` line in the class's header (or
 directly in an application file for custom types), and placing `GenericEl
 generic;` as the first member of its struct:
 
 ```c
-ch_use(String, STRING, char*)
+ch_use(String, STRING, (char*))
 
 struct STRING {
   GenericEl generic;
@@ -348,8 +364,8 @@ See [`examples/README.md`](examples/README.md) for full walkthroughs, code
 snippets, and sample outputs of the included examples and extensions:
 
 -   **Core Chaining & Containers**: [`examples/chain.c`](examples/chain.c),
-    [`examples/chain_nomacro.c`](examples/chain_nomacro.c) (macro-free ANSI
-    C89), [`examples/chain_hash.c`](examples/chain_hash.c),
+    [`examples/chain_nomacro.c`](examples/chain_nomacro.c) (macro-free,
+    strictly conforming ANSI C89), [`examples/chain_hash.c`](examples/chain_hash.c),
     [`examples/chain_nest.c`](examples/chain_nest.c) (nested `Hash`/`Slice`
     trees and `from_json()`), and
     [`examples/chain_typed_array.c`](examples/chain_typed_array.c).

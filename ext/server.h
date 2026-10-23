@@ -25,7 +25,7 @@
 extern "C" {
 #endif
 
-ch_use(Server, SERVER, int)
+ch_use(Server, SERVER, (int))
 
 /*
  * Callback signature for HTTP route handlers. Receives a `Hash *req` containing

@@ -23,7 +23,7 @@
 extern "C" {
 #endif
 
-ch_use(String, STRING, char*)
+ch_use(String, STRING, (char*))
 
 #include "core/slice.h"
 

@@ -195,8 +195,8 @@ static Test* expect_eq(void *actual_ptr, void *expected_ptr) {
       test->failed++;
       print_failure_prefix(test);
       fprintf(stderr,
-              "type mismatch (actual=%p \"%s\", expected=%p \"%s\")\n",
-              actual->type_val, act_str, expected->type_val, exp_str);
+              "type mismatch (actual \"%s\", expected \"%s\")\n",
+              act_str, exp_str);
     } else if (strcmp(act_str, exp_str) != 0) {
       test->failed++;
       print_failure_prefix(test);

@@ -25,7 +25,7 @@
 extern "C" {
 #endif
 
-ch_use(Boolean, BOOLEAN, int)
+ch_use(Boolean, BOOLEAN, (int))
 
 /*
  * Boxed boolean value (`0` or `1`) supporting fluent mutation and `"true"` /

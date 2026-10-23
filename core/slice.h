@@ -23,7 +23,7 @@
 extern "C" {
 #endif
 
-ch_use(Slice, SLICE, int)
+ch_use(Slice, SLICE, (int))
 
 #include "core/string.h"
 
