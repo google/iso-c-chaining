@@ -183,18 +183,27 @@ static String* join(char* delim) {
   return $(str);
 }
 
-static void foreach(void (*run)(GenericEl*)) {
+static void foreach_ctx(void (*run)(GenericEl*, void*), void *ctx) {
   int i;
   Slice *slice = slf;
   for (i = 0; i < slice->length; i++) {
     /* Re-bind `slice` each pass in case `run()` touches another `Slice`. */
-    run($(slice)->get(i));
+    run($(slice)->get(i), ctx);
   }
   if (slice->generic.refs == 0) {
     release(slice);
   } else {
     $(slice);
   }
+}
+
+static void foreach_no_ctx_adapter(GenericEl *el, void *ctx) {
+  void (**fn_ptr)(GenericEl*) = (void (**)(GenericEl*))ctx;
+  (*fn_ptr)(el);
+}
+
+static void foreach(void (*run)(GenericEl*)) {
+  foreach_ctx(foreach_no_ctx_adapter, &run);
 }
 
 static char* to_chars(void) {
@@ -265,6 +274,7 @@ Slice* ch_new_Slice(int n) {
   slice->get = get;
   slice->join = join;
   slice->foreach = foreach;
+  slice->foreach_ctx = foreach_ctx;
   slice->generic.to_chars = to_chars;
 
   self((GenericEl*)slice);

@@ -62,7 +62,10 @@ int main(void) {
           "a-b-c")
       ->expect_str(
           create(TypedFloatArray, 0)->push_n(2, 1.5, 2.25),
-          "[1.5,2.25]");
+          "[1.5,2.25]")
+      ->expect_str(
+          create(TypedF32Array, 0)->push_n(2, 1.5f, 0.25f),
+          "[1.5,0.25]");
 
 #ifdef CHAIN_HAS_DB_
   /* 2. SQLite Db extension via CHAIN_ENABLE_DB in single header. */
@@ -100,6 +103,29 @@ int main(void) {
           $(mcp)->call_tool("echo", create(Hash, 1)
               ->put("msg", create(String, "hi"))),
           "{\"echo\":\"hi\"}");
+
+#ifdef CHAIN_HAS_GLFW_
+  /* 5. GLFW3 Glfw + OpenGL 3.3 Gl extensions via CHAIN_ENABLE_GLFW in single header. */
+  Glfw *win = create(Glfw, 40, 30, "single_hdr_glfw")
+      ->gl_version(3, 3, GLFW_OPENGL_CORE_PROFILE)
+      ->visible(0)
+      ->vsync(0)
+      ->clear_color(0.0f, 1.0f, 0.0f, 1.0f)
+      ->step()
+      ->$$;
+
+  $(t)->section("GLFW3 Glfw & Gl extensions via single header")
+      ->expect_ok($(win)->status())
+      ->expect_str($(win)->read_pixel(20, 15), "[0,255,0,255]");
+
+#ifdef CHAIN_HAS_GL_
+  Gl *gl = create(Gl, (GlLoader)glfwGetProcAddress)->$$;
+  $(t)->expect_ok($(gl)->status());
+  release(gl);
+#endif
+
+  release(win);
+#endif
 
   release(mcp);
   release(srv);

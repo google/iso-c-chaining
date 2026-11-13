@@ -82,6 +82,13 @@ struct SLICE {
    * re-entrant `Slice` operations inside `run`.
    */
   void (*foreach)(void (*run)(ChGenericEl*));
+
+  /*
+   * Invokes `run(elem, ctx)` for each element in order with caller-supplied
+   * context `ctx`. Safe across nested or re-entrant `Slice` operations inside
+   * `run`.
+   */
+  void (*foreach_ctx)(void (*run)(ChGenericEl*, void*), void *ctx);
 };
 
 #ifdef __cplusplus

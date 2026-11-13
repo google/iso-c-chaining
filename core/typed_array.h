@@ -27,10 +27,10 @@ extern "C" {
 
 /*
  * Declares a JavaScript-style contiguous unboxed typed array (`TypedIntArray`,
- * `TypedCharArray`, `TypedFloatArray`) backed by `ChGenericEl` so instances
- * participate in reference counting, `Hash`/`Slice` nesting, and JSON
- * serialization while storing raw C primitives (`int`, `char`, `double`) in a
- * single allocation.
+ * `TypedCharArray`, `TypedFloatArray`, `TypedF32Array`) backed by `ChGenericEl`
+ * so instances participate in reference counting, `Hash`/`Slice` nesting, and
+ * JSON serialization while storing raw C primitives (`int`, `char`, `double`,
+ * `float`) in a single allocation.
  */
 #define CH_DECLARE_TYPED_ARRAY(ChType, TYPE_TAG, ElemT)                        \
   ch_use(ChType, TYPE_TAG, (int))                                               \
@@ -63,6 +63,9 @@ extern "C" {
     /* Copies `count` elements from `buf` into the array and returns `slf`. */ \
     Ch##ChType* (*from_buf)(const ElemT *buf, int count);                      \
                                                                                \
+    /* Appends `count` elements from `buf` onto the array and returns `slf`. */ \
+    Ch##ChType* (*append_buf)(const ElemT *buf, int count);                    \
+                                                                               \
     /* Returns a new array over `[begin, end)`, releasing `slf` if unowned. */ \
     Ch##ChType* (*subarray)(int begin, int end);                               \
                                                                                \
@@ -94,6 +97,7 @@ extern "C" {
 CH_DECLARE_TYPED_ARRAY(TypedIntArray, TYPED_INT_ARRAY, int)
 CH_DECLARE_TYPED_ARRAY(TypedCharArray, TYPED_CHAR_ARRAY, char)
 CH_DECLARE_TYPED_ARRAY(TypedFloatArray, TYPED_FLOAT_ARRAY, double)
+CH_DECLARE_TYPED_ARRAY(TypedF32Array, TYPED_F32_ARRAY, float)
 
 #ifdef __cplusplus
 }

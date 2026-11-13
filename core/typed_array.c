@@ -75,10 +75,14 @@ static void format_float_elem(char *buf, size_t size, double v) {
   }
 }
 
+static void format_f32_elem(char *buf, size_t size, float v) {
+  format_float_elem(buf, size, (double)v);
+}
+
 /*
  * Generates the complete method table and constructor for a contiguous typed
  * array. `VaPromotedT` is the C default argument promotion type for `<stdarg.h>`
- * (`int` for `int` and `char`, `double` for `double`).
+ * (`int` for `int` and `char`, `double` for `double` and `float`).
  */
 #define CH_IMPL_TYPED_ARRAY(                                                   \
     ChType, TYPE_TAG, pfx, ElemT, VaPromotedT, join_fmt_fn, json_fmt_fn)       \
@@ -188,6 +192,16 @@ static void format_float_elem(char *buf, size_t size, double v) {
     pfx##_ensure_cap(arr, count);                                              \
     memcpy(arr->data, buf, sizeof(ElemT) * (size_t)count);                     \
     arr->length = count;                                                       \
+    return $(arr);                                                             \
+  }                                                                            \
+                                                                               \
+  static ChType* pfx##_append_buf(const ElemT *buf, int count) {               \
+    ChType *arr = pfx##_self(NULL);                                            \
+    if (buf != NULL && count > 0) {                                            \
+      pfx##_ensure_cap(arr, arr->length + count);                              \
+      memcpy(arr->data + arr->length, buf, sizeof(ElemT) * (size_t)count);     \
+      arr->length += count;                                                    \
+    }                                                                          \
     return $(arr);                                                             \
   }                                                                            \
                                                                                \
@@ -370,6 +384,7 @@ static void format_float_elem(char *buf, size_t size, double v) {
     arr->push_n = pfx##_push_n;                                                \
     arr->fill = pfx##_fill;                                                    \
     arr->from_buf = pfx##_from_buf;                                            \
+    arr->append_buf = pfx##_append_buf;                                        \
     arr->subarray = pfx##_subarray;                                            \
     arr->map = pfx##_map;                                                      \
     arr->filter = pfx##_filter;                                                \
@@ -393,3 +408,6 @@ CH_IMPL_TYPED_ARRAY(
 CH_IMPL_TYPED_ARRAY(
     TypedFloatArray, TYPED_FLOAT_ARRAY, float_arr, double, double,
     format_float_elem, format_float_elem)
+CH_IMPL_TYPED_ARRAY(
+    TypedF32Array, TYPED_F32_ARRAY, f32_arr, float, double,
+    format_f32_elem, format_f32_elem)

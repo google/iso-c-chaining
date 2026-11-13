@@ -52,6 +52,8 @@ DEMO_SOURCES = [
 ]
 
 DB_SOURCE = ("db", "demos/db.c")
+GL_SOURCE = ("gl", "demos/gl.c")
+GLFW_SOURCE = ("glfw", "demos/glfw.c")
 
 LOCAL_INCLUDE_RE = re.compile(r'^\s*#\s*include\s+"([^"]+)"\s*$')
 SYS_INCLUDE_RE = re.compile(r"^\s*#\s*include\s+<([^>]+)>\s*$")
@@ -109,6 +111,8 @@ BANNER_PREFIX = (
     " *\n"
     " *   Optional configuration macros (define before including):\n"
     " *     #define CHAIN_ENABLE_DB       // Include SQLite3 Db\n"
+    " *     #define CHAIN_ENABLE_GL       // Include OpenGL 3.3 Gl wrapper\n"
+    " *     #define CHAIN_ENABLE_GLFW     // Include GLFW3 Glfw (and Gl)\n"
     " *     #define CHAIN_NO_SHORT_NAMES  // Ch* / ch_* names only\n"
     " */\n"
     "#ifndef CHAIN_SINGLE_H_\n"
@@ -248,6 +252,29 @@ def generate_single_header(root: pathlib.Path) -> str:
       "#endif  /* CHAIN_ENABLE_DB */\n",
   ])
 
+  gl_header_chunk = expand_header("demos/gl.h", root, seen_headers)
+  gl_header_section = "\n".join([
+      "#if !defined(CHAIN_NO_GL) && \\",
+      "    (defined(CHAIN_ENABLE_GL) || defined(CHAIN_ENABLE_GLFW) || \\",
+      "     defined(_glfw3_h_))",
+      "#ifndef CHAIN_HAS_GL_",
+      "#define CHAIN_HAS_GL_ 1",
+      "#endif",
+      gl_header_chunk,
+      "#endif  /* CHAIN_ENABLE_GL */\n",
+  ])
+
+  glfw_header_chunk = expand_header("demos/glfw.h", root, seen_headers)
+  glfw_header_section = "\n".join([
+      "#if !defined(CHAIN_NO_GLFW) && \\",
+      "    (defined(CHAIN_ENABLE_GLFW) || defined(_glfw3_h_))",
+      "#ifndef CHAIN_HAS_GLFW_",
+      "#define CHAIN_HAS_GLFW_ 1",
+      "#endif",
+      glfw_header_chunk,
+      "#endif  /* CHAIN_ENABLE_GLFW */\n",
+  ])
+
   impl_chunks = [
       transform_source(mod, path, root) for mod, path in CORE_SOURCES
   ]
@@ -262,14 +289,39 @@ def generate_single_header(root: pathlib.Path) -> str:
       "#endif  /* CHAIN_HAS_DB_ */\n",
   ])
 
+  gl_impl_chunk = transform_source(GL_SOURCE[0], GL_SOURCE[1], root)
+  gl_impl_section = "\n".join([
+      "#ifdef CHAIN_HAS_GL_",
+      "#ifdef __APPLE__",
+      "#include <OpenGL/gl3.h>",
+      "#else",
+      "#include <GL/gl.h>",
+      "#include <GL/glext.h>",
+      "#endif",
+      gl_impl_chunk,
+      "#endif  /* CHAIN_HAS_GL_ */\n",
+  ])
+
+  glfw_impl_chunk = transform_source(GLFW_SOURCE[0], GLFW_SOURCE[1], root)
+  glfw_impl_section = "\n".join([
+      "#ifdef CHAIN_HAS_GLFW_",
+      "#include <GLFW/glfw3.h>",
+      glfw_impl_chunk,
+      "#endif  /* CHAIN_HAS_GLFW_ */\n",
+  ])
+
   parts = [
       BANNER_PREFIX,
       "\n\n".join(header_chunks),
       db_header_section,
+      gl_header_section,
+      glfw_header_section,
       "#endif  /* CHAIN_SINGLE_H_ */\n",
       IMPL_PROLOGUE,
       "\n\n".join(impl_chunks),
       db_impl_section,
+      gl_impl_section,
+      glfw_impl_section,
       IMPL_EPILOGUE,
   ]
   return "\n".join(parts)

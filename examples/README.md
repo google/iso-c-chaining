@@ -91,9 +91,10 @@ Unexpected character at offset 27
 ## 2. Contiguous TypedArrays (`chain_typed_array.c`)
 
 [`chain_typed_array.c`](chain_typed_array.c) demonstrates `TypedIntArray`,
-`TypedFloatArray`, and `TypedCharArray` (`core/typed_array.h`), which store raw
-C primitives (`int`, `double`, `char`) in a single contiguous heap buffer
-instead of boxing each element in its own `GenericEl` struct:
+`TypedFloatArray`, `TypedF32Array`, and `TypedCharArray` (`core/typed_array.h`),
+which store raw C primitives (`int`, `double`, `float`, `char`) in a single
+contiguous heap buffer instead of boxing each element in its own `GenericEl`
+struct:
 
 ```c
 TypedIntArray *scores = create(TypedIntArray, 0)
@@ -102,6 +103,7 @@ TypedIntArray *scores = create(TypedIntArray, 0)
     ->$$; /* [4, 15, 16, 23, 42, 88] */
 ```
 
-Typed arrays support `push`, `push_n`, `fill`, `from_buf`, `subarray`, `map`,
-`filter`, `sort`, `reverse`, `reduce`, `foreach`, `join`, and `to_slice()`, and
-can be placed directly inside a `Hash` or `Slice` for JSON serialization.
+Typed arrays support `push`, `push_n`, `fill`, `from_buf`, `append_buf`,
+`subarray`, `map`, `filter`, `sort`, `reverse`, `reduce`, `foreach`, `join`,
+and `to_slice()`, and can be placed directly inside a `Hash` or `Slice` for
+JSON serialization.

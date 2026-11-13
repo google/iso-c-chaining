@@ -93,4 +93,4 @@ struct MCP {
 }
 #endif
 
-#endif  /* CHAIN_MCP_H_ */
+#endif /* CHAIN_MCP_H_ */

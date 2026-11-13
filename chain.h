@@ -30,6 +30,12 @@
 #include "demos/db.h"
 #include "demos/mcp.h"
 #include "demos/server.h"
+#if defined(CHAIN_ENABLE_GL) || defined(CHAIN_ENABLE_GLFW)
+#include "demos/gl.h"
+#endif
+#ifdef CHAIN_ENABLE_GLFW
+#include "demos/glfw.h"
+#endif
 #include "core/test.h"
 
 #endif  /* CHAIN_H_ */

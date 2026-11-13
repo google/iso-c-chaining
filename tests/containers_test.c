@@ -70,6 +70,15 @@ static void sum_slice_callback(GenericEl *el) {
   }
 }
 
+static void sum_slice_ctx_callback(GenericEl *el, void *ctx) {
+  int *acc = (int*)ctx;
+  Slice *tmp = create(Slice, 1)->add(create(Number, 1));
+  release(tmp);
+  if (is_type(el, NUMBER)) {
+    *acc += (int)as(Number, el)->value();
+  }
+}
+
 static void sum_hash_callback(char *key, GenericEl *el) {
   /* Create a temporary inner Hash to verify outer Hash iteration is safe. */
   Hash *tmp = create(Hash, 1)->put("k", create(Number, 1));
@@ -98,6 +107,13 @@ static void test_slice_operations(Test *t) {
       ->add(create(Number, 6))
       ->foreach(sum_slice_callback);
 
+  int ctx_sum = 0;
+  $(grown)->foreach_ctx(sum_slice_ctx_callback, &ctx_sum);
+  create(Slice, 2)
+      ->add(create(Number, 11))
+      ->add(create(Number, 19))
+      ->foreach_ctx(sum_slice_ctx_callback, &ctx_sum);
+
   /* Saved Slice for non-destructive sub_slice and append checks. */
   Slice *saved_slice = create(Slice, 4)
       ->add(create(String, "a"))
@@ -114,6 +130,7 @@ static void test_slice_operations(Test *t) {
       ->expect_num($(grown)->get(5), 5)
       ->expect_num($(grown)->get(11), 999)
       ->expect_num(create(Number, slice_foreach_sum), 100 + 55 + 999 + 10)
+      ->expect_num(create(Number, ctx_sum), 100 + 55 + 999 + 30)
       ->expect_str($(saved_slice)->sub_slice(1, 2)->join("-"), "b-c")
       ->expect_str($(saved_slice)->sub_slice(0, 0)->join("-"), "a")
       ->expect_str($(saved_slice)->join(","), "a,b,c,d")
@@ -334,6 +351,16 @@ static void test_typed_array_operations(Test *t) {
       ->map(scale_float)
       ->$$;
 
+  /*
+   * 4. TypedF32Array: 32-bit float storage, push_n, append_buf, and sorting.
+   */
+  const float raw_f32[3] = {4.5f, 1.25f, 2.5f};
+  TypedF32Array *f32s = create(TypedF32Array, 0)
+      ->push_n(2, 3.5f, 0.5f)
+      ->append_buf(raw_f32, 3)
+      ->sort()
+      ->$$;
+
   $(t)->section("TypedIntArray, TypedCharArray & TypedFloatArray operations")
       ->expect_num(create(Number, $(ints)->length), 6)
       ->expect_num(create(Number, $(ints)->at(0)), 10)
@@ -369,6 +396,8 @@ static void test_typed_array_operations(Test *t) {
       ->expect_str($(shifted_chars)->join("-"), "i-f-m-m")
       ->expect_str(floats, "[1.25,2.5,3.5,4]")
       ->expect_str(filled_floats, "[3,3,3]")
+      ->expect_str(f32s, "[0.5,1.25,2.5,3.5,4.5]")
+      ->expect_num(create(Number, (double)f32s->length), 5)
       ->expect_str(
           create(Hash, 2)
               ->put("scores", create(TypedIntArray, 0)->push_n(3, 100, 95, 88))
@@ -387,6 +416,7 @@ static void test_typed_array_operations(Test *t) {
               ->add(create(String, "end")),
           "[[10,20],[30,40],\"50/60\",\"end\"]");
 
+  release(f32s);
   release(filled_floats);
   release(floats);
   release(shifted_chars);

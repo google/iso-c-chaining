@@ -411,6 +411,16 @@ stretches.
     -   **Model Context Protocol Server (`demos/mcp.h`)**:
         [`chain_mcp.c`](demos/examples/chain_mcp.c) (JSON-RPC 2.0 stdio MCP
         server wrapping `/bin/uname`, `/bin/df`, and `/bin/ps` for AI agents).
+    -   **GLFW3 Window, OpenGL 3.3, Voxel & ECS Demos (`demos/glfw.h`,
+        `demos/gl.h`, `demos/voxel.h`, `demos/ecs.h`)**: A three-step
+        graphics progression from [`chain_glfw.c`](demos/examples/chain_glfw.c)
+        (fluent GLFW3 window, OpenGL 3.3 shader/VAO/VBO `Gl` wrapper,
+        `Hash`-backed events, and `read_pixel()` verification), to
+        [`chain_voxel.c`](demos/examples/chain_voxel.c) (3D voxel sandbox on
+        [`VoxelWorld`](demos/voxel.h)), to
+        [`chain_shooter.c`](demos/examples/chain_shooter.c) (hardware-instanced
+        3D radial wave shooter driven by a standalone Structure-of-Arrays
+        [`Ecs`](demos/ecs.h) on `TypedF32Array`/`TypedIntArray`).
 
 ### Building with CMake and Single-Header Distribution
 
@@ -430,7 +440,8 @@ amalgamation generator (`tools/make_single_header.py`):
     -   Directly: `python3 tools/make_single_header.py --output chain_single.h`
 -   **Using `chain_single.h`**: In one C/C++ source file, define
     `CHAIN_IMPLEMENTATION` before including `chain_single.h` (and optionally
-    `CHAIN_ENABLE_DB` when linking `-lsqlite3`):
+    `CHAIN_ENABLE_DB` when linking `-lsqlite3`, or `CHAIN_ENABLE_GL` /
+    `CHAIN_ENABLE_GLFW` when linking GLFW3 + OpenGL):
 
     ```c
     #define CHAIN_IMPLEMENTATION

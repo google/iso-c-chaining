@@ -60,10 +60,10 @@ int main(void) {
     `Boolean`, `Null`, `GenericEl` runtime type checks (`CH_MAGIC`, `as()`,
     `is_type()`), reference counting (`refs`, `release()`), and `NOMACRO`
     equivalence.
--   [`containers_test.c`](containers_test.c): `Slice`, `Hash`, deeply nested
-    containers, intrusive `self` stack re-entrancy, and `TypedArray`
-    (`TypedIntArray`, `TypedFloatArray`, `TypedCharArray`, and `NOMACRO`
-    equivalents).
+-   [`containers_test.c`](containers_test.c): `Slice` (including
+    `foreach_ctx()`), `Hash`, deeply nested containers, intrusive `self` stack
+    re-entrancy, and `TypedArray` (`TypedIntArray`, `TypedF32Array`,
+    `TypedFloatArray`, `TypedCharArray`, and `NOMACRO` equivalents).
 -   [`json_status_test.c`](json_status_test.c): `from_json()` parser, JSON
     serialization (`to_chars()`), and `StatusOr` error propagation.
 -   [`single_header_test.c`](single_header_test.c): End-to-end verification of
@@ -81,3 +81,13 @@ Tests for the demo extensions live alongside them in
 -   [`mcp_test.c`](../demos/tests/mcp_test.c): Model Context Protocol (`Mcp`)
     JSON-RPC 2.0 server (`initialize`, `ping`, `tools/list`, `tools/call`, and
     in-memory `call_tool`).
+-   [`ecs_test.c`](../demos/tests/ecs_test.c): Structure-of-Arrays `Ecs`
+    registry, `f32`/`i32` component columns, free-list slot recycling, and
+    `tick()` system dispatch.
+-   [`gl_test.c`](../demos/tests/gl_test.c): OpenGL 3.3 Core Profile (`Gl`)
+    loader validation, shader compilation error handling, shared programs
+    (`share_program()`), VAO/VBO mesh upload, hardware instancing
+    (`instance_buf()` / `draw_instanced()`), uniforms, and draw verification.
+-   [`glfw_test.c`](../demos/tests/glfw_test.c): `Glfw` window lifecycle,
+    hint configuration, OpenGL rendering + `read_pixel()` readback, resize, and
+    `Hash`-backed event callbacks.

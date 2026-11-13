@@ -24,6 +24,8 @@ endif()
 option(CHAIN_BUILD_EXAMPLES "Build chaining example binaries" ${CHAIN_IS_TOP_LEVEL})
 option(CHAIN_BUILD_TESTS "Build chaining unit test suites" ${CHAIN_IS_TOP_LEVEL})
 option(CHAIN_ENABLE_SQLITE "Build SQLite3 Db extension when SQLite3 is available" ON)
+option(CHAIN_ENABLE_GL "Build OpenGL 3.3 Gl wrapper when OpenGL is available" ON)
+option(CHAIN_ENABLE_GLFW "Build GLFW3 Glfw wrapper when GLFW3 + OpenGL are available" ON)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED OFF)
@@ -88,6 +90,43 @@ if(CHAIN_HAS_SQLITE)
   target_link_libraries(chaining_lib PUBLIC SQLite::SQLite3)
 endif()
 
+set(CHAIN_HAS_GL FALSE)
+if(CHAIN_ENABLE_GL OR CHAIN_ENABLE_GLFW)
+  find_package(OpenGL QUIET)
+  if(OpenGL_FOUND)
+    set(CHAIN_HAS_GL TRUE)
+    add_library(gl_lib demos/gl.c)
+    add_library(chaining::gl ALIAS gl_lib)
+    target_include_directories(gl_lib
+      PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+        $<INSTALL_INTERFACE:include>
+    )
+    target_link_libraries(gl_lib PUBLIC core_lib OpenGL::GL)
+  endif()
+endif()
+
+set(CHAIN_HAS_GLFW FALSE)
+if(CHAIN_ENABLE_GLFW)
+  find_package(glfw3 3.3 QUIET)
+  if(glfw3_FOUND AND CHAIN_HAS_GL)
+    set(CHAIN_HAS_GLFW TRUE)
+    add_library(glfw_lib demos/glfw.c)
+    add_library(chaining::glfw ALIAS glfw_lib)
+    target_include_directories(glfw_lib
+      PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+        $<INSTALL_INTERFACE:include>
+    )
+    target_link_libraries(glfw_lib PUBLIC core_lib glfw OpenGL::GL)
+    if(UNIX)
+      target_link_libraries(glfw_lib PUBLIC m)
+    endif()
+  else()
+    message(STATUS "GLFW3 or OpenGL not found: skipping demos/glfw.c")
+  endif()
+endif()
+
 # =========================================================
 # Single-Header Amalgamation Target (`chain_single.h`)
 # =========================================================
@@ -120,6 +159,10 @@ if(Python3_Interpreter_FOUND)
     ${CMAKE_CURRENT_SOURCE_DIR}/core/types.h
     ${CMAKE_CURRENT_SOURCE_DIR}/demos/db.c
     ${CMAKE_CURRENT_SOURCE_DIR}/demos/db.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/demos/gl.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/demos/gl.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/demos/glfw.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/demos/glfw.h
     ${CMAKE_CURRENT_SOURCE_DIR}/demos/mcp.c
     ${CMAKE_CURRENT_SOURCE_DIR}/demos/mcp.h
     ${CMAKE_CURRENT_SOURCE_DIR}/demos/server.c
@@ -204,6 +247,29 @@ if(CHAIN_BUILD_EXAMPLES)
     add_executable(server_bench demos/benchmarks/server_bench.c)
     target_link_libraries(server_bench PRIVATE chaining_lib core_lib)
   endif()
+
+  if(CHAIN_HAS_GLFW)
+    add_executable(chain_glfw demos/examples/chain_glfw.c)
+    target_link_libraries(chain_glfw PRIVATE glfw_lib gl_lib core_lib)
+
+    add_executable(chain_voxel
+      demos/examples/chain_voxel.c
+      demos/voxel.c
+    )
+    target_link_libraries(chain_voxel PRIVATE glfw_lib gl_lib core_lib)
+    if(UNIX)
+      target_link_libraries(chain_voxel PRIVATE m)
+    endif()
+
+    add_executable(chain_shooter
+      demos/examples/chain_shooter.c
+      demos/ecs.c
+    )
+    target_link_libraries(chain_shooter PRIVATE glfw_lib gl_lib core_lib)
+    if(UNIX)
+      target_link_libraries(chain_shooter PRIVATE m)
+    endif()
+  endif()
 endif()
 
 # =========================================================
@@ -239,6 +305,30 @@ if(CHAIN_BUILD_TESTS)
     add_test(NAME ${test_name} COMMAND ${test_name})
   endforeach()
 
+  add_executable(ecs_test demos/tests/ecs_test.c demos/ecs.c)
+  target_link_libraries(ecs_test PRIVATE core_lib)
+  add_test(NAME ecs_test COMMAND ecs_test)
+
+  if(CHAIN_HAS_GLFW)
+    add_executable(glfw_test demos/tests/glfw_test.c)
+    target_link_libraries(glfw_test PRIVATE glfw_lib core_lib)
+    add_test(NAME glfw_test COMMAND glfw_test)
+
+    add_executable(gl_test demos/tests/gl_test.c)
+    target_link_libraries(gl_test PRIVATE gl_lib glfw_lib core_lib)
+    add_test(NAME gl_test COMMAND gl_test)
+
+    if(TARGET chain_glfw)
+      add_test(NAME chain_glfw_test COMMAND chain_glfw --test)
+    endif()
+    if(TARGET chain_voxel)
+      add_test(NAME chain_voxel_test COMMAND chain_voxel --test)
+    endif()
+    if(TARGET chain_shooter)
+      add_test(NAME chain_shooter_test COMMAND chain_shooter --test)
+    endif()
+  endif()
+
   if(TARGET chain_single_lib)
     add_executable(single_header_test tests/single_header_test.c)
     target_link_libraries(single_header_test PRIVATE chain_single_lib)
@@ -257,7 +347,15 @@ endif()
 
 include(GNUInstallDirs)
 
-install(TARGETS core_lib chaining_lib
+set(CHAIN_INSTALL_TARGETS core_lib chaining_lib)
+if(TARGET gl_lib)
+  list(APPEND CHAIN_INSTALL_TARGETS gl_lib)
+endif()
+if(TARGET glfw_lib)
+  list(APPEND CHAIN_INSTALL_TARGETS glfw_lib)
+endif()
+
+install(TARGETS ${CHAIN_INSTALL_TARGETS}
   ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}

@@ -24,9 +24,24 @@ and [`../examples/`](../examples/README.md); come here to see it stretch.
 -   [`mcp.h`](mcp.h) / [`mcp.c`](mcp.c): `Mcp`—JSON-RPC 2.0 stdio server
     implementing the Model Context Protocol `initialize` / `tools/list` /
     `tools/call` handshake.
+-   [`gl.h`](gl.h) / [`gl.c`](gl.c): `Gl`—loader-agnostic OpenGL 3.3 Core
+    Profile shader compilation, VAO/VBO mesh upload, vertex attribute, uniform,
+    and draw-call wrapper.
+-   [`glfw.h`](glfw.h) / [`glfw.c`](glfw.c): `Glfw`—fluent GLFW3 window,
+    OpenGL context, `Hash`-backed input/frame callbacks, and framebuffer
+    readback wrapper (built automatically when GLFW3 + OpenGL are installed).
+-   [`voxel.h`](voxel.h) / [`voxel.c`](voxel.c): `VoxelWorld`—fluent 3x3
+    sliding-chunk 3D voxel world controller built on `Gl`, `Slice`, `Hash`,
+    `TypedCharArray`, and `TypedF32Array`.
+-   [`ecs.h`](ecs.h) / [`ecs.c`](ecs.c): `Ecs`—fluent Structure-of-Arrays
+    (SoA) Entity Component System storing dense `TypedF32Array` /
+    `TypedIntArray` columns with free-list slot recycling and ordered `tick()`
+    systems.
 -   [`examples/`](examples/): `chain_db.c`, `chain_vector_db.c`,
-    `chain_server.c`, `chain_mcp.c` (each supports `--test`).
--   [`tests/`](tests/): `db_test.c`, `server_test.c`, `mcp_test.c`.
+    `chain_server.c`, `chain_mcp.c`, `chain_glfw.c`, `chain_voxel.c`,
+    `chain_shooter.c` (each supports `--test`).
+-   [`tests/`](tests/): `db_test.c`, `server_test.c`, `mcp_test.c`, `gl_test.c`,
+    `glfw_test.c`, `ecs_test.c`.
 -   [`benchmarks/`](benchmarks/README.md): `Server` + `Db` throughput against
     equivalent Node.js/Express and Python/Django apps.
 
@@ -37,6 +52,9 @@ cmake -B build && cmake --build build
 ./build/chain_db
 ./build/chain_server            # then: curl http://127.0.0.1:8080/users
 ./build/chain_mcp --test
+./build/chain_glfw              # opens an interactive OpenGL triangle window
+./build/chain_voxel             # opens a 3D Minecraft-style voxel sandbox
+./build/chain_shooter           # opens a 3D instanced ECS radial wave shooter
 ```
 
 --------------------------------------------------------------------------------
@@ -208,4 +226,71 @@ agent:
      1420      | postgres         | 4.2%    | 1.8%
      1184      | nginx            | 1.5%    | 0.3%
      2048      | python3          | 0.8%    | 0.6%
+```
+
+--------------------------------------------------------------------------------
+
+## 4. GLFW3 Window, OpenGL 3.3, Voxel & ECS Demos (`chain_glfw.c`, `chain_voxel.c`, `chain_shooter.c`)
+
+Three progressive graphics demos build on [`demos/gl.h`](gl.h),
+[`demos/glfw.h`](glfw.h), [`demos/voxel.h`](voxel.h), and
+[`demos/ecs.h`](ecs.h):
+
+[`demos/gl.h`](gl.h) / [`demos/gl.c`](gl.c) wrap OpenGL 3.3 Core Profile shaders,
+VAOs, VBOs, uniforms, and draw calls in an independent `Gl` class
+(`create(Gl, (GlLoader)glfwGetProcAddress)`), while [`demos/glfw.h`](glfw.h) and
+[`demos/glfw.c`](glfw.c) wrap GLFW3 (`<GLFW/glfw3.h>`) in a `GenericEl`-backed
+`Glfw` object (`create(Glfw, width, height, title)`) with reference-counted
+`glfwInit()` / `glfwTerminate()` lifetimes:
+
+-   `Gl` chains `shader()`, `share_program()`, `mesh()`, `mesh_buf()`, `attr()`,
+    `uniform_1f()`–`uniform_4f()`, `uniform_1i()`, `uniform_mat4()`,
+    `depth_test()`, `cull_face()`, `viewport()`, `clear()`, and `draw()`,
+    automatically freeing GPU buffers, VAOs, and owned programs on `release()`.
+-   `Glfw` chains pre-open configuration (`hint()`, `gl_version()`,
+    `resizable()`, `visible()`, `samples()`, `vsync()`, `clear_color()`,
+    `max_frames()`, `user_data()`), event handlers (`on_key()`, `on_char()`,
+    `on_mouse_button()`, `on_cursor()`, `on_scroll()`, `on_resize()`,
+    `on_close()`), and frame callbacks (`on_render()`), passing the bound
+    `Glfw *win` and a `Hash*` event/frame map (`"frame"`, `"time"`, `"dt"`,
+    `"width"`, `"height"`).
+-   [`chain_glfw.c`](examples/chain_glfw.c) renders an interactive OpenGL 3.3
+    Core Profile rotating triangle controlled by `Space` (pause), scroll wheel
+    (speed), `R`/`G`/`B`/`D` (background tint), and `Esc` (close), plus `--test`
+    for event/lifecycle verification, while [`gl_test.c`](tests/gl_test.c) and
+    [`glfw_test.c`](tests/glfw_test.c) verify shader compilation, OpenGL
+    rendering, and framebuffer `read_pixel()` readback end-to-end.
+-   [`chain_voxel.c`](examples/chain_voxel.c) wires `Glfw` events cleanly into
+    [`VoxelWorld`](voxel.h) (`$(world)->move(...)->render(...)`, `look()`,
+    `raycast_break()`, `raycast_place()`): a continuous 3x3 grid of
+    `16x16x16` procedural voxel chunks (terrain, water, trees) whose meshes
+    share one compiled GLSL program via `Gl::share_program()`, upload geometry
+    from `TypedF32Array` via `Gl::mesh_buf()`, iterate chunks via
+    `Slice::foreach_ctx()`, persist block edits per chunk across shifts, and
+    support surface walking with 1-block auto-step (`W/A/S/D`, `Space` jump,
+    `F` fly toggle), mouse look (`cursor_mode(GLFW_CURSOR_DISABLED)`),
+    `1`–`6` / scroll block selection, and raycast break/place.
+-   [`chain_shooter.c`](examples/chain_shooter.c) pairs [`Ecs`](ecs.h) SoA
+    component columns with OpenGL 3.3 hardware instancing (`Gl::share_program()`,
+    `Gl::instance_buf()`, `Gl::instance_attr()`, `Gl::draw_instanced()`) to
+    duplicate 4 low-poly 3D models across a center-arena ship (controlled by
+    mouse cursor or keyboard), 360-degree radial enemy waves, twin lasers, enemy
+    bolts, explosion bursts, and an orbital starfield.
+
+```c
+Gl *gl = create(Gl, (GlLoader)glfwGetProcAddress)
+    ->shader(VERTEX_SHADER_SRC, FRAGMENT_SHADER_SRC)
+    ->mesh(vertices, 15, 5)
+    ->attr(0, 2, 0)
+    ->attr(1, 3, 2);
+
+$(win)->user_data(create(Hash, 4)
+    ->put("angle", create(Number, 0.0))
+    ->put("speed", create(Number, 45.0))
+    ->put("paused", create(Boolean, 0))
+    ->put("gl", gl))
+    ->on_key(on_key)
+    ->on_scroll(on_scroll)
+    ->on_render(on_render)
+    ->run();
 ```
