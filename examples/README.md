@@ -31,8 +31,8 @@ assertions via `Test` (`core/test.h`):
     Unboxed `TypedIntArray`, `TypedFloatArray`, and `TypedCharArray` (`map`,
     `filter`, `reduce`, `sort`, `subarray`).
 -   [`chain_box.c`](chain_box.c) (`./build/chain_box`): Pure ISO C `Box` smart
-    pointers (`box_of`, `box_as`, `use_box`, `reset`, `take`) managing `FILE*`
-    streams, pixel buffers, and plain C structs across `Hash` and `Slice`.
+    pointers (`box_of`, `box_as`, `use_box`, `reset`, `take`) sharing `FILE*`
+    streams across `Hash` and `Slice` and managing a plain C `Buffer` struct.
 -   [`chain_scoped.c`](chain_scoped.c) (`./build/chain_scoped`): Opt-in
     GCC/Clang `scoped` + `move_ref` automatic cleanup across `FILE*`, scratch
     buffers, and `StatusOr` early returns.
@@ -118,16 +118,17 @@ JSON serialization.
 
 ## 3. Smart-Pointer `Box` (`chain_box.c`) & Scoped RAII (`chain_scoped.c`)
 
-[`chain_box.c`](chain_box.c) wraps plain C structs (`Texture`, `Material`) and
-libc `FILE*` streams without intrusive `ChGenericEl` fields inside `Box`
-(`core/box.h`), sharing them across `Hash` and `Slice`:
+[`chain_box.c`](chain_box.c) wraps unmodified libc `FILE*` streams and a plain C
+`Buffer` struct inside `Box` (`core/box.h`), without adding intrusive
+`ChGenericEl` fields:
 
--   `use_box(Texture)` declares `TextureBox` so `$(albedo)->get()->width = 128`
-    dereferences with static `Texture*` typing.
--   `box_of(Material, ...)` and `box_as(Material, $(cache)->get("hull_mat"))`
-    tag and unwrap entries inline without per-struct boilerplate.
--   `reset()` swaps the wrapped resource in place (running the old destructor),
-    and `take()` detaches exclusive ownership back to plain C.
+-   `box_of(FILE, tmpfile(), close_temp_file)` and
+    `box_as(FILE, $(channels)->get("error"))` let a `Hash` and `Slice` co-own
+    the same open stream and close it once when the last container drops it.
+-   `use_box(Buffer)` declares `BufferBox` so `$(buf)->get()->len` dereferences
+    with static `Buffer*` typing.
+-   `reset()` swaps the wrapped buffer in place (freeing the previous one), and
+    `take()` detaches exclusive ownership back to plain C.
 
 [`chain_scoped.c`](chain_scoped.c) puts GCC/Clang opt-in `scoped` +
 `move_ref` (`__attribute__((cleanup))`) into a separate example: parsing a

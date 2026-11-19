@@ -15,17 +15,17 @@
  */
 
 /**
- * Pure ISO C demonstration of `Box` smart pointers over existing C structs and
- * libc resources (`FILE*`, custom multi-allocation textures, and materials):
+ * Pure ISO C demonstration of `Box` smart pointers (`core/box.h`):
  *
- *   - `Box` wraps libc `FILE*` (`tmpfile()`) + raw buffers inside `Hash` and
- *     `Slice` containers so `release()` cleans up all resources uniformly.
- *   - `use_box(Texture)` creates a statically typed `TextureBox` facade so
- *     `$(tex)->get()->width` works without casts.
- *   - `box_of(Material, ...)` + `box_as(Material, $(cache)->get(...))` mutate
- *     cached C structs inline with runtime `#Type` tag checking.
- *   - `reset()` hot-reloads a texture in place; `take()` hands exclusive raw
- *     C ownership back to the caller.
+ *   1. External handles in containers (`box_of` / `box_as`): `Hash` and `Slice`
+ *      require `ChGenericEl*` objects, so plain libc `FILE*` streams cannot be
+ *      stored directly. Wrapping `tmpfile()` in `Box` lets a `Hash` and `Slice`
+ *      co-own the same open `FILE*` and call `fclose()` exactly once when the
+ *      last container releases it.
+ *   2. Typed struct wrapper (`use_box`), `reset()`, and `take()`: `BufferBox`
+ *      gives cast-free `->get()->len` access over a plain C struct, swaps its
+ *      payload in place via `reset()`, and hands exclusive ownership back to C
+ *      via `take()`.
  *
  * Build & run with CMake:
  *   cmake -B build && cmake --build build
@@ -37,7 +37,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "core/boolean.h"
 #include "core/box.h"
 #include "core/hash.h"
 #include "core/number.h"
@@ -47,177 +46,110 @@
 #include "core/types.h"
 
 typedef struct {
-  char name[32];
-  int width;
-  int height;
-  unsigned char *pixels;
-  int *freed_counter;
-} Texture;
+  char *data;
+  size_t len;
+} Buffer;
 
-typedef struct {
-  char shader[32];
-  float roughness;
-  int *freed_counter;
-} Material;
+use_box(Buffer)
 
-/* Declares `TextureBox` so `$(tex)->get()->field` is typed as `Texture*`. */
-use_box(Texture)
-
-static void free_texture(void *raw) {
-  Texture *tex = (Texture*)raw;
-  if (tex != NULL) {
-    if (tex->freed_counter != NULL) {
-      (*tex->freed_counter)++;
-    }
-    free(tex->pixels);
-    free(tex);
-  }
-}
-
-static void free_material(void *raw) {
-  Material *mat = (Material*)raw;
-  if (mat != NULL) {
-    if (mat->freed_counter != NULL) {
-      (*mat->freed_counter)++;
-    }
-    free(mat);
-  }
-}
+static int g_files_closed = 0;
+static int g_buffers_freed = 0;
 
 static void close_temp_file(void *raw) {
-  FILE *fp = (FILE*)raw;
-  if (fp != NULL) {
-    fclose(fp);
+  if (raw != NULL) {
+    fclose((FILE*)raw);
+    g_files_closed++;
   }
 }
 
-static Texture* alloc_texture(const char *name, int w, int h,
-                              unsigned char fill, int *freed_counter) {
-  size_t byte_count = (size_t)(w * h * 4);
-  Texture *tex = malloc(sizeof(Texture));
-  snprintf(tex->name, sizeof(tex->name), "%s", name);
-  tex->width = w;
-  tex->height = h;
-  tex->pixels = malloc(byte_count);
-  memset(tex->pixels, fill, byte_count);
-  tex->freed_counter = freed_counter;
-  return tex;
+static Buffer* new_buffer(const char *text) {
+  Buffer *b = malloc(sizeof(Buffer));
+  b->len = strlen(text);
+  b->data = malloc(b->len + 1);
+  memcpy(b->data, text, b->len + 1);
+  return b;
 }
 
-static Material* alloc_material(const char *shader, float roughness,
-                                int *freed_counter) {
-  Material *mat = malloc(sizeof(Material));
-  snprintf(mat->shader, sizeof(mat->shader), "%s", shader);
-  mat->roughness = roughness;
-  mat->freed_counter = freed_counter;
-  return mat;
+static void free_buffer(void *raw) {
+  Buffer *b = (Buffer*)raw;
+  if (b != NULL) {
+    free(b->data);
+    free(b);
+    g_buffers_freed++;
+  }
 }
 
 static int run_demo(int quiet, int test_mode) {
-  int textures_freed = 0;
-  int materials_freed = 0;
-  Test *t = test_mode ? create(Test, "Box Smart Pointer Example")->$$ : NULL;
+  char read_back[64] = "";
 
-  /* 1. Typed `TextureBox` + untyped `Box(FILE*)` + `box_of(Material)` cache. */
-  TextureBox *albedo = create(
-      TextureBox, alloc_texture("hull_albedo", 64, 64, 0x80, &textures_freed),
-      free_texture)->$$;
-  TextureBox *normal = create(
-      TextureBox, alloc_texture("hull_normal", 64, 64, 0xFF, &textures_freed),
-      free_texture)->$$;
+  g_files_closed = 0;
+  g_buffers_freed = 0;
 
-  /* `Box` lets a standard libc `FILE*` live inside the same `Hash` tree. */
-  Box *trace_log = create(Box, tmpfile(), close_temp_file)->$$;
-  FILE *log_fp = trace_log->ptr; /* implicit void* -> FILE* in ISO C */
-  if (log_fp != NULL) {
-    fputs("texture_cache=initialized\n", log_fp);
-    rewind(log_fp);
+  /* 1. Share an unmodified libc `FILE*` across a `Hash` and a `Slice`. */
+  Box *err_stream = box_of(FILE, tmpfile(), close_temp_file)->$$;
+  Hash *channels = create(Hash, 4)
+      ->put("audit", box_of(FILE, tmpfile(), close_temp_file))
+      ->put("error", err_stream)
+      ->$$;
+  Slice *mirrored = create(Slice, 2)->add(err_stream)->$$;
+  release(err_stream); /* `channels` + `mirrored` now co-own `err_stream` */
+
+  FILE *efp = box_as(FILE, $(channels)->get("error"));
+  if (efp != NULL) {
+    fputs("disk quota exceeded\n", efp);
   }
 
-  Hash *cache = create(Hash, 8)
-      ->put("albedo", albedo)
-      ->put("normal", normal)
-      ->put("log", trace_log)
-      ->put("hull_mat",
-            box_of(Material, alloc_material("pbr_metal", 0.65f,
-                                            &materials_freed),
-                   free_material))
-      ->$$;
+  /* Dropping `mirrored` keeps `err_stream` open because `channels` owns it. */
+  release(mirrored);
+  int closed_after_mirror = g_files_closed;
 
-  /* Active draw queue also shares ownership of `albedo` and `normal`. */
-  Slice *draw_queue = create(Slice, 4)->add(albedo)->add(normal)->$$;
-  int albedo_refs_peak = albedo->generic.refs; /* local + cache + draw_queue */
-
-  /* Static typed mutation via `use_box(Texture)` and tag-checked `box_as`. */
-  $(albedo)->get()->width = 128;
-  box_as(Material, $(cache)->get("hull_mat"))->roughness = 0.25f;
-  float updated_roughness = box_as(Material, $(cache)->get("hull_mat"))->roughness;
-
-  char log_line[64] = "";
-  FILE *cached_log = $(as(Box, $(cache)->get("log")))->get();
-  if (cached_log != NULL) {
-    if (fgets(log_line, sizeof(log_line), cached_log) != NULL) {
-      log_line[strcspn(log_line, "\n")] = '\0';
+  efp = box_as(FILE, $(channels)->get("error"));
+  if (efp != NULL) {
+    rewind(efp);
+    if (fgets(read_back, sizeof(read_back), efp) != NULL) {
+      read_back[strcspn(read_back, "\n")] = '\0';
     }
   }
 
-  /* Drop local refs; `cache` and `draw_queue` keep both textures alive. */
-  release(trace_log);
-  release(normal);
-  release(albedo);
-  int freed_while_queued = textures_freed;
+  /* Dropping `channels` closes both `"audit"` and `"error"` automatically. */
+  release(channels);
+  int closed_after_channels = g_files_closed;
 
-  /* Drop `draw_queue`; `cache` still retains both textures (refs == 1). */
-  release(draw_queue);
-  int freed_after_queue = textures_freed;
+  /* 2. Typed `BufferBox` (`use_box`), in-place `reset()`, and `take()`. */
+  BufferBox *buf = create(BufferBox, new_buffer("draft-v1"), free_buffer)->$$;
+  size_t first_len = $(buf)->get()->len;
 
-  /* Drop `cache`: closes `FILE*`, frees both textures and the material. */
-  release(cache);
-  int freed_after_cache = textures_freed;
+  $(buf)->reset(new_buffer("published-v2"), free_buffer);
+  int freed_after_reset = g_buffers_freed;
 
-  /* 2. `reset()` swaps texture in place; `take()` hands raw C pointer back. */
-  TextureBox *scratch = create(
-      TextureBox, alloc_texture("preview", 16, 16, 0x10, &textures_freed),
-      free_texture)->$$;
-  $(scratch)->reset(
-      alloc_texture("final_mip", 256, 256, 0x40, &textures_freed),
-      free_texture);
-  int freed_after_reset = textures_freed;
+  Buffer *raw = $(buf)->take();
+  release(buf); /* empty `Box` shell freed; `raw` stays alive */
+  int freed_after_empty_box = g_buffers_freed;
 
-  Texture *raw_tex = $(scratch)->take();
-  int freed_after_take = textures_freed;
-  release(scratch);
-  int freed_after_empty_release = textures_freed;
-
-  int final_width = raw_tex->width;
-  free_texture(raw_tex);
-  int freed_at_end = textures_freed;
-
+  size_t final_len = raw->len;
   if (!quiet) {
-    printf("Log line read back from Box(FILE*): %s\n", log_line);
-    printf("Albedo peak refs: %d, updated roughness: %.2f\n",
-           albedo_refs_peak, updated_roughness);
-    printf("Textures freed — queued: %d, queue dropped: %d, cache dropped: %d\n",
-           freed_while_queued, freed_after_queue, freed_after_cache);
-    printf("Reset freed preview (%d -> %d); take() kept final_mip (%dx%d) until manual free (%d -> %d)\n",
-           freed_after_cache, freed_after_reset, final_width, final_width,
-           freed_after_empty_release, freed_at_end);
+    printf("Shared FILE* read after dropping Slice: \"%s\" "
+           "(closed: %d -> %d)\n",
+           read_back, closed_after_mirror, closed_after_channels);
+    printf("BufferBox len %lu -> %lu (\"%s\"); buffers freed on reset=%d, "
+           "after empty release=%d\n",
+           (unsigned long)first_len, (unsigned long)final_len, raw->data,
+           freed_after_reset, freed_after_empty_box);
   }
+  free_buffer(raw);
+  int freed_at_end = g_buffers_freed;
 
   if (test_mode) {
-    $(t)->section("Box asset cache, FILE* handle, reset & take")
-        ->expect_str(create(String, log_line), "texture_cache=initialized")
-        ->expect_num(create(Number, albedo_refs_peak), 3)
-        ->expect_num(create(Number, updated_roughness), 0.25)
-        ->expect_num(create(Number, freed_while_queued), 0)
-        ->expect_num(create(Number, freed_after_queue), 0)
-        ->expect_num(create(Number, freed_after_cache), 2)
-        ->expect_num(create(Number, materials_freed), 1)
-        ->expect_num(create(Number, freed_after_reset), 3)
-        ->expect_num(create(Number, freed_after_take), 3)
-        ->expect_num(create(Number, freed_after_empty_release), 3)
-        ->expect_num(create(Number, final_width), 256)
-        ->expect_num(create(Number, freed_at_end), 4);
+    Test *t = create(Test, "Box Smart Pointer Example")->$$;
+    $(t)->section("Shared FILE* handles, BufferBox, reset() & take()")
+        ->expect_str(create(String, read_back), "disk quota exceeded")
+        ->expect_num(create(Number, closed_after_mirror), 0)
+        ->expect_num(create(Number, closed_after_channels), 2)
+        ->expect_num(create(Number, (double)first_len), 8)
+        ->expect_num(create(Number, (double)final_len), 12)
+        ->expect_num(create(Number, freed_after_reset), 1)
+        ->expect_num(create(Number, freed_after_empty_box), 1)
+        ->expect_num(create(Number, freed_at_end), 2);
     int rc = $(t)->summary();
     release(t);
     return rc;
