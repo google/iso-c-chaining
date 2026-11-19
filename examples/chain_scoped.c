@@ -115,14 +115,14 @@ static Box* open_temp_config(const char *contents, CleanupStats *stats) {
     fputs(contents, tf->fp);
     rewind(tf->fp);
   }
-  return create(Box, tf, close_tracked_handle);
+  return box_of(TrackedFile, tf, close_tracked_handle);
 }
 
 static Box* alloc_scratch_line(size_t cap, CleanupStats *stats) {
   ScratchLine *line = malloc(sizeof(ScratchLine));
   line->data = malloc(cap);
   line->stats = stats;
-  return create(Box, line, free_scratch_line);
+  return box_of(ScratchLine, line, free_scratch_line);
 }
 
 /*

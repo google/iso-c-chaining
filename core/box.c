@@ -31,9 +31,22 @@ static Box* self(GenericEl *s) {
   return (Box*)update_self_stack(&top, s, BOX);
 }
 
+static Box* require_slf(const char *method) {
+  Box *b = slf;
+  if (b == NULL) {
+    fprintf(stderr,
+            "Box error in %s(): no active Box on self stack "
+            "(did you forget $(box)?)\n",
+            method);
+    abort();
+  }
+  return b;
+}
+
 static void* save(void) {
-  slf->generic.refs++;
-  return slf;
+  Box *b = require_slf("save");
+  b->generic.refs++;
+  return b;
 }
 
 static Box* bind(GenericEl *box) {
@@ -66,11 +79,19 @@ static void del(void *obj) {
  */
 
 static void* get(void) {
-  return slf->ptr;
+  Box *b = require_slf("get");
+  void *raw = b->ptr;
+  self((GenericEl*)-1);
+  return raw;
 }
 
 static Box* reset(void *new_ptr, void (*new_dtor)(void*)) {
-  Box *b = slf;
+  Box *b = require_slf("reset");
+  if (b->generic.refs > 1) {
+    fprintf(stderr, "Type error: cannot reset() shared Box (refs=%d)\n",
+            b->generic.refs);
+    abort();
+  }
   if (b->ptr != NULL && b->ptr != new_ptr && b->dtor != NULL) {
     b->dtor(b->ptr);
   }
@@ -80,7 +101,7 @@ static Box* reset(void *new_ptr, void (*new_dtor)(void*)) {
 }
 
 static void* take(void) {
-  Box *b = slf;
+  Box *b = require_slf("take");
   void *raw;
   if (b->generic.refs > 1) {
     fprintf(stderr, "Type error: cannot take() shared Box (refs=%d)\n",
@@ -93,36 +114,65 @@ static void* take(void) {
   /*
    * When called on an unowned temporary (`refs == 0`), free the `Box` shell so
    * `$(box_of(...))->take()` returns the raw pointer without leaking the shell.
+   * `del()` pops `b` off `self`; otherwise pop `b` explicitly here.
    */
   if (b->generic.refs == 0) {
     release(b);
-  } else if (b->generic.prev_self != NULL) {
+  } else {
     self((GenericEl*)-1);
   }
   return raw;
 }
 
-static char* to_chars(void) {
-  Box *b = slf;
-  if (b->type_tag != NULL) {
-    if (b->ptr != NULL) {
-      snprintf(b->desc, sizeof(b->desc), "Box<%s>", b->type_tag);
-    } else {
-      snprintf(b->desc, sizeof(b->desc), "Box<%s>(NULL)", b->type_tag);
+static void format_box_desc(char *buf, size_t cap, const char *tag,
+                            const void *ptr) {
+  const char *suffix;
+  size_t suffix_len;
+  size_t prefix_len = 4; /* "Box<" */
+  size_t max_tag;
+  size_t tag_len;
+  if (cap == 0) {
+    return;
+  }
+  if (tag == NULL) {
+    const char *literal = ptr != NULL ? "Box" : "Box(NULL)";
+    size_t lit_len = strlen(literal);
+    if (lit_len >= cap) {
+      lit_len = cap - 1;
     }
-  } else if (b->ptr != NULL) {
-    snprintf(b->desc, sizeof(b->desc), "Box");
-  } else {
-    snprintf(b->desc, sizeof(b->desc), "Box(NULL)");
+    memcpy(buf, literal, lit_len);
+    buf[lit_len] = '\0';
+    return;
   }
-  if (b->generic.prev_self != NULL) {
-    self((GenericEl*)-1);
+  suffix = ptr != NULL ? ">" : ">(NULL)";
+  suffix_len = strlen(suffix);
+  if (cap <= prefix_len + suffix_len) {
+    buf[0] = '\0';
+    return;
   }
+  max_tag = cap - 1 - prefix_len - suffix_len;
+  tag_len = strlen(tag);
+  if (tag_len > max_tag) {
+    tag_len = max_tag;
+  }
+  memcpy(buf, "Box<", prefix_len);
+  memcpy(buf + prefix_len, tag, tag_len);
+  memcpy(buf + prefix_len + tag_len, suffix, suffix_len);
+  buf[prefix_len + tag_len + suffix_len] = '\0';
+}
+
+static char* to_chars(void) {
+  Box *b = require_slf("to_chars");
+  format_box_desc(b->desc, sizeof(b->desc), b->type_tag, b->ptr);
+  self((GenericEl*)-1);
   return b->desc;
 }
 
 void ch_box_raw_init(ChBox *box, void *ptr, void (*dtor)(void*),
                      const char *type_tag) {
+  if (box == NULL) {
+    return;
+  }
   box->generic.magic = CH_MAGIC;
   box->generic.type_val = BOX;
   box->generic.prev_self = NULL;
@@ -180,11 +230,20 @@ void* ch_box_raw_as(ChGenericEl *el, const char *expected_tag) {
     abort();
   }
   box = (ChBox*)checked;
-  if (expected_tag != NULL && box->type_tag != NULL &&
-      strcmp(box->type_tag, expected_tag) != 0) {
-    fprintf(stderr, "Type error: Box<%s> cannot be accessed as %s\n",
-            box->type_tag, expected_tag);
-    abort();
+  if (expected_tag != NULL) {
+    if (box->type_tag == NULL) {
+      fprintf(stderr, "Type error: untagged Box cannot be accessed as %s\n",
+              expected_tag);
+      abort();
+    }
+    if (strcmp(box->type_tag, expected_tag) != 0) {
+      fprintf(stderr, "Type error: Box<%s> cannot be accessed as %s\n",
+              box->type_tag, expected_tag);
+      abort();
+    }
+  }
+  if (self(NULL) == box) {
+    self((GenericEl*)-1);
   }
   return box->ptr;
 }
@@ -194,6 +253,12 @@ void* ch_box_raw_as(ChGenericEl *el, const char *expected_tag) {
  */
 Box* ch_new_Box(void *ptr, void (*dtor)(void*)) {
   Box *box = malloc(sizeof(Box));
+  if (box == NULL) {
+    if (ptr != NULL && dtor != NULL) {
+      dtor(ptr);
+    }
+    return NULL;
+  }
   ch_box_raw_init(box, ptr, dtor, NULL);
   return box;
 }

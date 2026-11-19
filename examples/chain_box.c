@@ -154,8 +154,9 @@ static int run_demo(int quiet, int test_mode) {
   float updated_roughness = box_as(Material, $(cache)->get("hull_mat"))->roughness;
 
   char log_line[64] = "";
-  if (box_as(FILE, $(cache)->get("log")) != NULL) {
-    if (fgets(log_line, sizeof(log_line), (FILE*)$(trace_log)->get()) != NULL) {
+  FILE *cached_log = $(as(Box, $(cache)->get("log")))->get();
+  if (cached_log != NULL) {
+    if (fgets(log_line, sizeof(log_line), cached_log) != NULL) {
       log_line[strcspn(log_line, "\n")] = '\0';
     }
   }

@@ -353,10 +353,37 @@ static void test_box_and_smart_pointers(Test *t) {
   int freed_after_manual = freed;
 
   /* Temporary take() cleans up the Box shell cleanly. */
-  BoxDemoItem *temp_taken = $(box_of(BoxDemoItem,
-      make_box_demo_item(6, 60, &freed), free_box_demo_item))->take();
+  BoxDemoItem *temp_taken = box_of(BoxDemoItem,
+      make_box_demo_item(6, 60, &freed), free_box_demo_item)->take();
   int temp_taken_score = temp_taken->score;
   free_box_demo_item(temp_taken);
+
+  /* get(), chars(), take(), and box_as() pop their temporary Box self entry. */
+  Box *outer_box =
+      box_of(BoxDemoItem, make_box_demo_item(10, 100, &freed),
+             free_box_demo_item)->$$;
+  BoxDemoItemBox *nested_box =
+      create(BoxDemoItemBox,
+             make_box_demo_item(11, 110, &freed),
+             free_box_demo_item)->$$;
+  BoxDemoItem *nested_ptr = $(nested_box)->get();
+  int get_restored_self = (nested_ptr != NULL && nested_ptr->id == 11 &&
+                           outer_box->bind(NULL) == outer_box);
+  $(outer_box)->chars();
+  int chars_restored_self = (outer_box->bind(NULL) == NULL);
+  BoxDemoItem *nested_taken = $(nested_box)->take();
+  int take_restored_self = (nested_taken != NULL &&
+                            nested_box->bind(NULL) == NULL);
+  Box *tagged2 =
+      box_of(BoxDemoItem, make_box_demo_item(12, 120, &freed),
+             free_box_demo_item)->$$;
+  int box_as_restored_self =
+      (box_as(BoxDemoItem, tagged2)->id == 12 &&
+       tagged2->bind(NULL) == NULL);
+  free_box_demo_item(nested_taken);
+  release(tagged2);
+  release(nested_box);
+  release(outer_box);
 
   /* Prefixed ChBox / ch_* C89 API. */
   ChBox *cbox = ch_new_Box(make_box_demo_item(7, 70, &freed),
@@ -366,6 +393,13 @@ static void test_box_and_smart_pointers(Test *t) {
   int freed_before_scoped = freed;
 
 #ifdef CH_HAS_SCOPED_
+  BoxDemoItem *single_eval_taken = $(box_of(BoxDemoItem,
+      make_box_demo_item(13, 130, &freed), free_box_demo_item))->take();
+  int single_eval_clean = (single_eval_taken != NULL &&
+                           single_eval_taken->score == 130 &&
+                           ch_box_raw_bind(NULL) == NULL);
+  free_box_demo_item(single_eval_taken);
+
   BoxDemoItemBox *discarded = build_scoped_item(8, 80, &freed, 1);
   int freed_after_scoped_early_return = freed;
   scoped BoxDemoItemBox *kept = build_scoped_item(9, 90, &freed, 0);
@@ -386,12 +420,17 @@ static void test_box_and_smart_pointers(Test *t) {
       ->expect_num(create(Number, freed_after_taken_release), 4)
       ->expect_num(create(Number, freed_after_manual), 5)
       ->expect_num(create(Number, temp_taken_score), 60)
-      ->expect_num(create(Number, freed_before_scoped), 7)
+      ->expect_bool(create(Boolean, get_restored_self), true)
+      ->expect_bool(create(Boolean, chars_restored_self), true)
+      ->expect_bool(create(Boolean, take_restored_self), true)
+      ->expect_bool(create(Boolean, box_as_restored_self), true)
+      ->expect_num(create(Number, freed_before_scoped), 10)
       ->expect_str(create(Box, NULL, NULL), "Box(NULL)")
       ->expect_str(box_of(BoxDemoItem, NULL, NULL), "Box<BoxDemoItem>(NULL)")
 #ifdef CH_HAS_SCOPED_
+      ->expect_bool(create(Boolean, single_eval_clean), true)
       ->expect_bool(create(Boolean, discarded == NULL), true)
-      ->expect_num(create(Number, freed_after_scoped_early_return), 8)
+      ->expect_num(create(Number, freed_after_scoped_early_return), 12)
       ->expect_num(create(Number, kept_score), 90)
 #endif
       ;

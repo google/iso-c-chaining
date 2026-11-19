@@ -47,7 +47,8 @@ struct BOX {
   /*
    * Frees any previously wrapped pointer (calling `dtor(ptr)` if `ptr` is
    * non-NULL and differs from `new_ptr`), stores `(new_ptr, new_dtor)`, and
-   * returns this `Box` for chaining.
+   * returns this `Box` for chaining. Aborts if this `Box` is shared
+   * (`refs > 1`).
    */
   ChBox* (*reset)(void*, void (*)(void*));
 
@@ -71,7 +72,9 @@ ChBox* ch_box_raw_reset(void *ptr, void (*dtor)(void*));
 void* ch_box_raw_as(ChGenericEl *el, const char *expected_tag);
 
 #define ch_box_of(Type, ptr, dtor) \
-  ch_box_raw_tag(ch_new_Box((void*)(ptr), (dtor)), #Type)
+  ch_box_raw_tag( \
+      ch_new_Box((void*)(1 ? (ptr) : (Type*)0), (dtor)), \
+      #Type)
 
 #define ch_box_as(Type, elem) \
   ((Type*)ch_box_raw_as((ChGenericEl*)(elem), #Type))
@@ -116,6 +119,12 @@ void* ch_box_raw_as(ChGenericEl *el, const char *expected_tag);
   } \
   static Ch##Type##Box* ch_new_##Type##Box(Type *ptr, void (*dtor)(void*)) { \
     Ch##Type##Box *b = (Ch##Type##Box*)malloc(sizeof(Ch##Type##Box)); \
+    if (b == NULL) { \
+      if (ptr != NULL && dtor != NULL) { \
+        dtor((void*)ptr); \
+      } \
+      return NULL; \
+    } \
     ch_box_raw_init((ChBox*)b, (void*)ptr, dtor, #Type); \
     b->bind = ch_bind_##Type##Box_; \
     b->generic.bind = (void* (*)(ChGenericEl*))ch_bind_##Type##Box_; \

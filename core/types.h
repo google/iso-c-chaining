@@ -260,7 +260,19 @@ static void ch_cleanup_ptr_(void *pp) {
 #ifdef CH_HAS_VARIADIC_MACROS_
 #define ch_create(class, ...) ((Ch ## class*)ch_new_ ## class(__VA_ARGS__))
 #endif
+#ifdef CH_HAS_SCOPED_
+#define ch_bind(obj) \
+  __extension__ ({ \
+    __typeof__(obj) ch_obj_ = (obj); \
+    if (ch_obj_ == NULL) { \
+      fprintf(stderr, "Type error: NULL pointer passed to $()/ch_bind()\n"); \
+      abort(); \
+    } \
+    ch_obj_->bind((ChGenericEl*)ch_obj_); \
+  })
+#else
 #define ch_bind(obj) ((obj)->bind((ChGenericEl*)(obj)))
+#endif
 #define ch_save generic.save()
 #define ch_as(class, elem) \
   ((Ch ## class*)ch_cast_el((ChGenericEl*)(elem), \
