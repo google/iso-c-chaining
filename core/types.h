@@ -20,6 +20,7 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -212,6 +213,29 @@ static void ch_release(void *elem) {
   }
 }
 
+#if defined(__GNUC__) || defined(__clang__)
+#define CH_HAS_SCOPED_ 1
+
+static void ch_cleanup_ptr_(void *pp) {
+  void *p = NULL;
+  if (pp != NULL) {
+    memcpy(&p, pp, sizeof(p));
+    if (p != NULL) {
+      memset(pp, 0, sizeof(p));
+      ch_release(p);
+    }
+  }
+}
+
+#define ch_scoped __extension__ __attribute__((cleanup(ch_cleanup_ptr_)))
+#define ch_move(var) \
+  __extension__ ({ \
+    __typeof__(var) ch_tmp_ = (var); \
+    (var) = NULL; \
+    ch_tmp_; \
+  })
+#endif
+
 /*
  * Variadic macros (`__VA_ARGS__`) are a C99 / C++11 feature. The constructor
  * sugar `ch_create()` / `create()` depends on them, so it is only defined when
@@ -265,6 +289,10 @@ typedef ChGenericEl GenericEl;
 #define update_self_stack ch_update_self_stack
 #define claim_element ch_claim_element
 #define release ch_release
+#ifdef CH_HAS_SCOPED_
+#define scoped ch_scoped
+#define move_ref(var) ch_move(var)
+#endif
 #ifdef CH_HAS_VARIADIC_MACROS_
 #define create(class, ...) ((class*)ch_new_ ## class(__VA_ARGS__))
 #endif

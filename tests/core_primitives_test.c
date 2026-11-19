@@ -18,6 +18,7 @@
 #include <stddef.h>
 
 #include "core/boolean.h"
+#include "core/box.h"
 #include "core/hash.h"
 #include "core/json.h"
 #include "core/null.h"
@@ -253,6 +254,149 @@ static void test_runner_self_checks(Test *t) {
   release(inner);
 }
 
+typedef struct {
+  int id;
+  int score;
+  int *freed_counter;
+} BoxDemoItem;
+
+use_box(BoxDemoItem)
+
+static void free_box_demo_item(void *raw) {
+  BoxDemoItem *item = (BoxDemoItem*)raw;
+  if (item != NULL) {
+    if (item->freed_counter != NULL) {
+      (*item->freed_counter)++;
+    }
+    free(item);
+  }
+}
+
+static BoxDemoItem* make_box_demo_item(int id, int score, int *freed_counter) {
+  BoxDemoItem *item = malloc(sizeof(BoxDemoItem));
+  item->id = id;
+  item->score = score;
+  item->freed_counter = freed_counter;
+  return item;
+}
+
+#ifdef CH_HAS_SCOPED_
+static BoxDemoItemBox* build_scoped_item(int id, int score, int *freed_counter,
+                                         int fail_early) {
+  scoped BoxDemoItemBox *tmp =
+      create(BoxDemoItemBox,
+             make_box_demo_item(id, score, freed_counter),
+             free_box_demo_item)->$$;
+  if (fail_early) {
+    return NULL;
+  }
+  return move_ref(tmp);
+}
+#endif
+
+static void test_box_and_smart_pointers(Test *t) {
+  int freed = 0;
+
+  /* Untyped Box + implicit void* conversion & box_of / box_as dereference. */
+  Box *raw_box =
+      create(Box, make_box_demo_item(1, 10, &freed), free_box_demo_item)->$$;
+  BoxDemoItem *local_ptr = raw_box->ptr;
+  local_ptr->score += 5;
+
+  Box *tagged_box =
+      box_of(BoxDemoItem, make_box_demo_item(2, 20, &freed), free_box_demo_item)
+          ->$$;
+  box_as(BoxDemoItem, tagged_box)->score += 22;
+
+  /* Shared ownership across Hash + Slice with single destruction. */
+  BoxDemoItemBox *typed_box =
+      create(BoxDemoItemBox,
+             make_box_demo_item(3, 30, &freed),
+             free_box_demo_item)->$$;
+  $(typed_box)->get()->score += 70;
+
+  Hash *h = create(Hash, 4)
+      ->put("raw", raw_box)
+      ->put("tagged", tagged_box)
+      ->put("typed", typed_box)
+      ->$$;
+  Slice *s = create(Slice, 2)->add(typed_box)->$$;
+
+  int typed_refs_peak = typed_box->generic.refs;
+  int h_score = box_as(BoxDemoItem, $(h)->get("typed"))->score;
+  void *missing = box_as(BoxDemoItem, $(h)->get("missing"));
+
+  release(typed_box);
+  release(tagged_box);
+  release(raw_box);
+  int freed_before_containers = freed;
+
+  release(s);
+  int freed_after_slice = freed;
+
+  release(h);
+  int freed_after_hash = freed;
+
+  /* reset() replaces old value immediately; take() detaches without dtor. */
+  BoxDemoItemBox *swap =
+      create(BoxDemoItemBox,
+             make_box_demo_item(4, 40, &freed),
+             free_box_demo_item)->$$;
+  $(swap)->reset(make_box_demo_item(5, 50, &freed), free_box_demo_item);
+  int freed_after_reset = freed;
+  int reset_id = $(swap)->get()->id;
+  BoxDemoItem *taken = $(swap)->take();
+  int after_take_is_null = ($(swap)->get() == NULL);
+  release(swap);
+  int freed_after_taken_release = freed;
+  free_box_demo_item(taken);
+  int freed_after_manual = freed;
+
+  /* Temporary take() cleans up the Box shell cleanly. */
+  BoxDemoItem *temp_taken = $(box_of(BoxDemoItem,
+      make_box_demo_item(6, 60, &freed), free_box_demo_item))->take();
+  int temp_taken_score = temp_taken->score;
+  free_box_demo_item(temp_taken);
+
+  /* Prefixed ChBox / ch_* C89 API. */
+  ChBox *cbox = ch_new_Box(make_box_demo_item(7, 70, &freed),
+                           free_box_demo_item);
+  ch_bind(cbox)->generic.save();
+  ch_release(cbox);
+  int freed_before_scoped = freed;
+
+#ifdef CH_HAS_SCOPED_
+  BoxDemoItemBox *discarded = build_scoped_item(8, 80, &freed, 1);
+  int freed_after_scoped_early_return = freed;
+  scoped BoxDemoItemBox *kept = build_scoped_item(9, 90, &freed, 0);
+  int kept_score = $(kept)->get()->score;
+#endif
+
+  $(t)->section("Box smart pointers, box_as, use_box & scoped lifetimes")
+      ->expect_num(create(Number, local_ptr == NULL ? 0 : 15), 15)
+      ->expect_num(create(Number, h_score), 100)
+      ->expect_bool(create(Boolean, missing == NULL), true)
+      ->expect_num(create(Number, typed_refs_peak), 3)
+      ->expect_num(create(Number, freed_before_containers), 0)
+      ->expect_num(create(Number, freed_after_slice), 0)
+      ->expect_num(create(Number, freed_after_hash), 3)
+      ->expect_num(create(Number, freed_after_reset), 4)
+      ->expect_num(create(Number, reset_id), 5)
+      ->expect_bool(create(Boolean, after_take_is_null), true)
+      ->expect_num(create(Number, freed_after_taken_release), 4)
+      ->expect_num(create(Number, freed_after_manual), 5)
+      ->expect_num(create(Number, temp_taken_score), 60)
+      ->expect_num(create(Number, freed_before_scoped), 7)
+      ->expect_str(create(Box, NULL, NULL), "Box(NULL)")
+      ->expect_str(box_of(BoxDemoItem, NULL, NULL), "Box<BoxDemoItem>(NULL)")
+#ifdef CH_HAS_SCOPED_
+      ->expect_bool(create(Boolean, discarded == NULL), true)
+      ->expect_num(create(Number, freed_after_scoped_early_return), 8)
+      ->expect_num(create(Number, kept_score), 90)
+#endif
+      ;
+}
+
 int main(void) {
   Test *t = create(Test, "Core Primitives & Runtime Unit Tests")->$$;
 
@@ -261,6 +405,7 @@ int main(void) {
   test_number_operations(t);
   test_boolean_and_null(t);
   test_runner_self_checks(t);
+  test_box_and_smart_pointers(t);
 
   int rc = $(t)->summary();
   release(t);

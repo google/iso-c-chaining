@@ -41,6 +41,7 @@ CORE_SOURCES = [
     ("slice", "core/slice.c"),
     ("typed_array", "core/typed_array.c"),
     ("hash", "core/hash.c"),
+    ("box", "core/box.c"),
     ("status_or", "core/status_or.c"),
     ("json", "core/json.c"),
     ("test", "core/test.c"),
@@ -221,6 +222,7 @@ def generate_single_header(root: pathlib.Path) -> str:
   core_and_demo_headers = [
       "core/types.h",
       "core/boolean.h",
+      "core/box.h",
       "core/null.h",
       "core/number.h",
       "core/string.h",

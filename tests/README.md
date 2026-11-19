@@ -57,9 +57,9 @@ int main(void) {
 ## Test Suites
 
 -   [`core_primitives_test.c`](core_primitives_test.c): `String`, `Number`,
-    `Boolean`, `Null`, `GenericEl` runtime type checks (`CH_MAGIC`, `as()`,
-    `is_type()`), reference counting (`refs`, `release()`), and `NOMACRO`
-    equivalence.
+    `Boolean`, `Null`, `Box` (`box_of`, `box_as`, `use_box`, `reset`, `take`,
+    `scoped`, `move_ref`), `GenericEl` runtime type checks (`CH_MAGIC`, `as()`, `is_type()`), reference counting (`refs`, `release()`), and
+    `NOMACRO` equivalence.
 -   [`containers_test.c`](containers_test.c): `Slice` (including
     `foreach_ctx()`), `Hash`, deeply nested containers, intrusive `self` stack
     re-entrancy, and `TypedArray` (`TypedIntArray`, `TypedF32Array`,

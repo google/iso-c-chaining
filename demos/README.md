@@ -38,8 +38,8 @@ and [`../examples/`](../examples/README.md); come here to see it stretch.
     `TypedIntArray` columns with free-list slot recycling and ordered `tick()`
     systems.
 -   [`examples/`](examples/): `chain_db.c`, `chain_vector_db.c`,
-    `chain_server.c`, `chain_mcp.c`, `chain_glfw.c`, `chain_voxel.c`,
-    `chain_shooter.c` (each supports `--test`).
+    `chain_server.c`, `chain_mcp.c`, `chain_grep.c`, `chain_glfw.c`,
+    `chain_voxel.c`, `chain_shooter.c` (each supports `--test`).
 -   [`tests/`](tests/): `db_test.c`, `server_test.c`, `mcp_test.c`, `gl_test.c`,
     `glfw_test.c`, `ecs_test.c`.
 -   [`benchmarks/`](benchmarks/README.md): `Server` + `Db` throughput against
@@ -52,6 +52,7 @@ cmake -B build && cmake --build build
 ./build/chain_db
 ./build/chain_server            # then: curl http://127.0.0.1:8080/users
 ./build/chain_mcp --test
+./build/chain_grep "box_as" examples
 ./build/chain_glfw              # opens an interactive OpenGL triangle window
 ./build/chain_voxel             # opens a 3D Minecraft-style voxel sandbox
 ./build/chain_shooter           # opens a 3D instanced ECS radial wave shooter
@@ -260,6 +261,10 @@ VAOs, VBOs, uniforms, and draw calls in an independent `Gl` class
     for event/lifecycle verification, while [`gl_test.c`](tests/gl_test.c) and
     [`glfw_test.c`](tests/glfw_test.c) verify shader compilation, OpenGL
     rendering, and framebuffer `read_pixel()` readback end-to-end.
+-   [`chain_grep.c`](examples/chain_grep.c) recursively searches files/dirs
+    using POSIX `DIR*`, `FILE*`, and `regex_t` (`regcomp`/`regexec`/`regfree`)
+    directly inside `Box` (`box_of`/`box_as`) and `scoped`—no custom structs
+    invented just to wrap handles.
 -   [`chain_voxel.c`](examples/chain_voxel.c) wires `Glfw` events cleanly into
     [`VoxelWorld`](voxel.h) (`$(world)->move(...)->render(...)`, `look()`,
     `raycast_break()`, `raycast_place()`): a continuous 3x3 grid of

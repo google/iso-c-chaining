@@ -388,8 +388,12 @@ stretches.
     [`examples/chain_nomacro.c`](examples/chain_nomacro.c) (macro-free,
     strictly conforming ANSI C89), [`examples/chain_hash.c`](examples/chain_hash.c),
     [`examples/chain_nest.c`](examples/chain_nest.c) (nested `Hash`/`Slice`
-    trees and `from_json()`), and
-    [`examples/chain_typed_array.c`](examples/chain_typed_array.c).
+    trees and `from_json()`),
+    [`examples/chain_typed_array.c`](examples/chain_typed_array.c),
+    [`examples/chain_box.c`](examples/chain_box.c) (`Box` resource smart
+    pointers with `use_box`/`box_as`), and
+    [`examples/chain_scoped.c`](examples/chain_scoped.c) (GCC/Clang opt-in
+    `scoped`/`move_ref` cleanup).
 -   **Fluent Unit Testing (`core/test.h`)**: See
     [`tests/README.md`](tests/README.md) for the chainable `Test` assertion
     runner used by `--test` across all examples and by the unit test suites in
@@ -411,6 +415,10 @@ stretches.
     -   **Model Context Protocol Server (`demos/mcp.h`)**:
         [`chain_mcp.c`](demos/examples/chain_mcp.c) (JSON-RPC 2.0 stdio MCP
         server wrapping `/bin/uname`, `/bin/df`, and `/bin/ps` for AI agents).
+    -   **POSIX Regex File Search (`core/box.h`)**:
+        [`chain_grep.c`](demos/examples/chain_grep.c) (recursive directory
+        searcher wrapping libc/POSIX `DIR*`, `FILE*`, and `regex_t` handles
+        via `Box` + `scoped` without custom wrapper structs).
     -   **GLFW3 Window, OpenGL 3.3, Voxel & ECS Demos (`demos/glfw.h`,
         `demos/gl.h`, `demos/voxel.h`, `demos/ecs.h`)**: A three-step
         graphics progression from [`chain_glfw.c`](demos/examples/chain_glfw.c)
@@ -419,8 +427,7 @@ stretches.
         [`chain_voxel.c`](demos/examples/chain_voxel.c) (3D voxel sandbox on
         [`VoxelWorld`](demos/voxel.h)), to
         [`chain_shooter.c`](demos/examples/chain_shooter.c) (hardware-instanced
-        3D radial wave shooter driven by a standalone Structure-of-Arrays
-        [`Ecs`](demos/ecs.h) on `TypedF32Array`/`TypedIntArray`).
+        3D wave shooter driven by [`Ecs`](demos/ecs.h)).
 
 ### Building with CMake and Single-Header Distribution
 

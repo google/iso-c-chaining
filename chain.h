@@ -18,6 +18,7 @@
 #define CHAIN_H_
 
 #include "core/boolean.h"
+#include "core/box.h"
 #include "core/hash.h"
 #include "core/json.h"
 #include "core/null.h"

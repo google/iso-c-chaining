@@ -37,6 +37,7 @@ set(CMAKE_C_EXTENSIONS ON)
 
 add_library(core_lib
   core/boolean.c
+  core/box.c
   core/hash.c
   core/json.c
   core/null.c
@@ -138,6 +139,8 @@ if(Python3_Interpreter_FOUND)
     ${CMAKE_CURRENT_SOURCE_DIR}/chain.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core/boolean.c
     ${CMAKE_CURRENT_SOURCE_DIR}/core/boolean.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/box.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/box.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core/hash.c
     ${CMAKE_CURRENT_SOURCE_DIR}/core/hash.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core/json.c
@@ -224,6 +227,14 @@ if(CHAIN_BUILD_EXAMPLES)
   add_executable(chain_typed_array examples/chain_typed_array.c)
   target_link_libraries(chain_typed_array PRIVATE core_lib)
 
+  add_executable(chain_box examples/chain_box.c)
+  target_link_libraries(chain_box PRIVATE core_lib)
+
+  if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+    add_executable(chain_scoped examples/chain_scoped.c)
+    target_link_libraries(chain_scoped PRIVATE core_lib)
+  endif()
+
 endif()
 
 # =========================================================
@@ -236,6 +247,11 @@ if(CHAIN_BUILD_EXAMPLES)
 
   add_executable(chain_mcp demos/examples/chain_mcp.c)
   target_link_libraries(chain_mcp PRIVATE chaining_lib core_lib)
+
+  if(UNIX AND CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+    add_executable(chain_grep demos/examples/chain_grep.c)
+    target_link_libraries(chain_grep PRIVATE core_lib)
+  endif()
 
   if(CHAIN_HAS_SQLITE)
     add_executable(chain_db demos/examples/chain_db.c)
@@ -291,6 +307,13 @@ if(CHAIN_BUILD_TESTS)
     add_test(NAME ${test_name} COMMAND ${test_name})
   endforeach()
 
+  if(TARGET chain_box)
+    add_test(NAME chain_box_test COMMAND chain_box --test)
+  endif()
+  if(TARGET chain_scoped)
+    add_test(NAME chain_scoped_test COMMAND chain_scoped --test)
+  endif()
+
   set(CHAIN_DEMO_TEST_TARGETS
     server_test
     mcp_test
@@ -308,6 +331,10 @@ if(CHAIN_BUILD_TESTS)
   add_executable(ecs_test demos/tests/ecs_test.c demos/ecs.c)
   target_link_libraries(ecs_test PRIVATE core_lib)
   add_test(NAME ecs_test COMMAND ecs_test)
+
+  if(TARGET chain_grep)
+    add_test(NAME chain_grep_test COMMAND chain_grep --test)
+  endif()
 
   if(CHAIN_HAS_GLFW)
     add_executable(glfw_test demos/tests/glfw_test.c)

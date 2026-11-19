@@ -20,6 +20,12 @@
 #define CHAIN_IMPLEMENTATION
 #include "chain_single.h"
 
+typedef struct {
+  int value;
+} SingleBoxPair;
+
+use_box(SingleBoxPair)
+
 static GenericEl* handle_ping(Hash *req) {
   Hash *params = as(Hash, $(req)->get("params"));
   String *name = as(String, $(params)->get("name"));
@@ -45,7 +51,14 @@ int main(void) {
       from_json("{\"nums\":[10,20],\"flag\":true,\"empty\":null}")->value()
   )->$$;
 
+  SingleBoxPair *raw_pair = malloc(sizeof(SingleBoxPair));
+  raw_pair->value = 123;
+  SingleBoxPairBox *pbox = create(SingleBoxPairBox, raw_pair, free)->$$;
+  $(pbox)->get()->value += 7;
+
   $(t)->section("Core types & JSON via single header")
+      ->expect_num(create(Number, $(pbox)->get()->value), 130)
+      ->expect_num(create(Number, box_as(SingleBoxPair, pbox)->value), 130)
       ->expect_num(create(Number, $(parts)->length), 3)
       ->expect_str(joined, "alpha+beta")
       ->expect_num(as(Slice, $(doc)->get("nums"))->get(1), 20)
@@ -127,6 +140,7 @@ int main(void) {
   release(win);
 #endif
 
+  release(pbox);
   release(mcp);
   release(srv);
   release(doc);
